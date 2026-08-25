@@ -17,3 +17,5 @@ traits-data/
 .secret
 .env
 .traits-cookies
+# SIP committee meeting notes — not public, never commit
+sip-meeting-notes/

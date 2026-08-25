@@ -9,7 +9,8 @@ included, since rejected and withdrawn proposals are closed. Its labels give
 `timeline` events.
 
 **Published SIP** — `docs.scala-lang.org/sips/<number>.html`, indexed at
-`all.html`. Gives `sip.url` and the `Sip` link.
+`all.html`. For a completed proposal this is `sip.url`; while one is still
+unmerged its page is only a stub, so use the PR URL until it lands.
 
 **Forum threads** — search `contributors.scala-lang.org/search.json?q=…`, then
 read `/t/<id>.json`. A change often has several: a pre-SIP discussion, a design
