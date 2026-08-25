@@ -116,13 +116,11 @@ object BoardPage:
   private def sections(
       cells: List[(EntrySummary, BoardCell)],
       columns: List[BoardColumn],
-      anchorPrefix: String,
       upcoming: Boolean
   ): List[Components.BoardSection] =
     val byColumn = cells.groupBy(_._2.column)
     columns.map { c =>
       Components.BoardSection(
-        anchorId = s"$anchorPrefix-$c",
         label = BoardColumn.label(c),
         colorCls = Components.columnClasses(c),
         cards = byColumn.getOrElse(c, Nil).sorted(using cardOrder).map(card(_, upcoming))
@@ -143,7 +141,7 @@ object BoardPage:
     val inVersion  = entries.flatMap(e => Board.cell(e.availability, e.archived, v).map(e -> _))
     val ahead      = entries.flatMap(e => Board.upcoming(e.availability, e.archived, v).map(e -> _))
     div(
-      Components.board(sections(inVersion, BoardColumn.inVersion, "stage", upcoming = false)),
+      Components.board(sections(inVersion, BoardColumn.inVersion, upcoming = false)),
       if historical then
         div(
           cls := "mt-10 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600",
@@ -160,7 +158,7 @@ object BoardPage:
           Components.subtitle(s"Not in ${v.render} yet — on the way, or still an idea."),
           div(
             cls := "mt-5",
-            Components.board(sections(ahead, BoardColumn.upcoming, "upcoming", upcoming = true))
+            Components.board(sections(ahead, BoardColumn.upcoming, upcoming = true))
           )
         )
     )

@@ -3,7 +3,6 @@ package org.scalalang.traits.frontend.ui
 import org.scalalang.traits.frontend.{Markdown, Page, Routes}
 import org.scalalang.traits.shared.{Availability, AvailabilityStage, BoardColumn}
 import com.raquo.laminar.api.L.*
-import org.scalajs.dom
 
 /** Three-state wrapper for an async load. */
 enum Loaded[+A]:
@@ -55,44 +54,22 @@ object Components:
 
   // ---- board views (the pipeline and the SIP board) ----
 
-  /** One stage of a board view: a pill in the count strip, and — when non-empty — a stacked
-    * full-width section of cards.
-    */
+  /** One stage of a board view: a stacked full-width section of cards, shown only when non-empty. */
   final case class BoardSection(
-      anchorId: String,
       label: String,
       colorCls: String,
       cards: List[HtmlElement]
   )
 
-  /** Count strip on top (empty stages dimmed, the others scroll to their section), then one section
-    * per non-empty stage, in the given order.
+  /** One section per non-empty stage, in the given order. Each carries its own label and count, so
+    * there is no separate index above them.
     */
   def board(sections: List[BoardSection]): HtmlElement =
-    div(
-      div(cls := "flex flex-wrap items-center gap-2 mb-6", sections.map(stripPill)),
-      sections.filter(_.cards.nonEmpty).map(boardSection)
-    )
-
-  private def stripPill(s: BoardSection): HtmlElement =
-    val base =
-      s"inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium px-2.5 py-1 rounded-full ${s.colorCls}"
-    if s.cards.isEmpty then
-      span(cls := s"$base opacity-40", s.label, span(cls := "font-normal", "0"))
-    else
-      button(
-        cls := s"$base hover:ring-2 hover:ring-blue-200 transition",
-        onClick --> { _ =>
-          Option(dom.document.getElementById(s.anchorId)).foreach(_.scrollIntoView())
-        },
-        s.label,
-        span(cls := "font-normal opacity-70", s.cards.size.toString)
-      )
+    div(sections.filter(_.cards.nonEmpty).map(boardSection))
 
   private def boardSection(s: BoardSection): HtmlElement =
     div(
-      idAttr := s.anchorId,
-      cls    := "mb-8",
+      cls := "mb-8",
       div(
         cls := "flex items-center gap-2 mb-3",
         badge(s.label, s.colorCls),

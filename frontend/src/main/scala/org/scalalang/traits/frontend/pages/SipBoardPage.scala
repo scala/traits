@@ -52,7 +52,6 @@ object SipBoardPage:
               .filter((_, sip) => SipState.stage(sip.state) == c)
               .sortBy(_._1.title)
             Components.BoardSection(
-              anchorId = s"sip-${stageLabel(c)}",
               label = stageLabel(c),
               colorCls = stageClasses(c),
               cards = items.map(card)
