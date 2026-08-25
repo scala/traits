@@ -7,16 +7,8 @@ the compiler as experimental → preview → stable, and eventually to deprecate
 and removed. It answers, for any change: *where does this stand, in which Scala
 version, and how do I use it?*
 
-## Status
-
-The proof of concept validated the idea; the app now implements the real model
-— the two-track lifecycle, versioned availability with backports, the version
-registry, and the per-version boards. The deployed instance holds test data
-for exercising the UI; entering real data is the next step, and the design
-still awaits review by the teams involved.
-
 **[`PLAN.md`](PLAN.md) is the design document** — what the app tracks, the
-lifecycle, the data model, the views, and the plan of work. Read it first.
+lifecycle, the data model, the views. Read it first.
 
 ## Running it
 
@@ -31,32 +23,36 @@ cd frontend && npm install && npm run dev    # in another terminal
 
 `sbt backend/run` sets `TRAITS_ENV=dev`, which supplies dev defaults for
 `TRAITS_EDITOR_PASSWORD` (`let-me-in`), `TRAITS_SESSION_SECRET` and
-`TRAITS_DB_PATH`. A packaged jar has no fallbacks and requires them explicitly.
+`TRAITS_DB_PATH`. A packaged jar has no fallbacks and requires them explicitly;
+the other variables are `TRAITS_HTTP_PORT`, `TRAITS_DB_POOL_SIZE` and
+`TRAITS_STATIC_FILES` (see `Config.scala`).
 
 For a production build, `cd frontend && npm run build` emits `frontend/dist`,
-which the backend serves as static files (`TRAITS_STATIC_FILES`).
+which the backend serves as static files.
+
+The store starts empty and is never seeded — deleting `traits-data/traits.sqlite*`
+loses its contents for good.
 
 ## Modules
 
-| Module     | Platform | What it holds                                                    |
-| ---------- | -------- | ---------------------------------------------------------------- |
-| `shared`   | JVM + JS | Domain model and the tapir `Endpoints` — the wire contract        |
-| `backend`  | JVM      | Netty-sync server, SQLite/Magnum store, auth, OpenAPI docs        |
-| `frontend` | JS       | Laminar SPA                                                       |
+| Module     | Platform | Package root                    | What it holds                                              |
+| ---------- | -------- | ------------------------------- | ---------------------------------------------------------- |
+| `shared`   | JVM + JS | `org.scalalang.traits.shared`   | Domain model, tapir `Endpoints`, `Schemas`, `ApiError`      |
+| `backend`  | JVM      | `org.scalalang.traits.backend`  | Netty-sync server, SQLite/Magnum store, auth, OpenAPI docs  |
+| `frontend` | JS       | `org.scalalang.traits.frontend` | Laminar SPA: board, SIP board, entry, versions, editor      |
 
 Both sides depend on `shared`, so the HTTP shape can't drift between them.
 
 Storage is a single SQLite file holding each entry as a JSON document. Reads are
 public; writes are gated by a shared password exchanged for a signed session
 cookie. There is no LLM in the server — curation is done by pointing a coding
-agent at the HTTP API. See [`PLAN.md`](PLAN.md) for why.
+agent at the HTTP API.
 
 ## Documentation
 
 | | |
 | --- | --- |
-| [`PLAN.md`](PLAN.md) | design and plan — the model, views, scope, roadmap |
+| [`PLAN.md`](PLAN.md) | design — the model, lifecycle, views, scope, sources |
 | [`AGENTS.md`](AGENTS.md) | conventions for working in this codebase |
-| [`docs/agent-curation.md`](docs/agent-curation.md) | curating the data with a coding agent, via the HTTP API |
+| [`docs/curation.md`](docs/curation.md) | curating the data with a coding agent, via the HTTP API |
 | [`docs/deploy.md`](docs/deploy.md) | deploying to the server |
-| [`DATA.md`](DATA.md) | where the curated data comes from |

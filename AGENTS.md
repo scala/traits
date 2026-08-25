@@ -14,26 +14,17 @@ document**, not a normalized Postgres schema.
 > implements** — what earns an entry, the lifecycle, the model semantics. Read
 > the plan before changing the domain; read this before editing anything.
 
-## Modules
-
-| Module     | Platform | Package root                         | Holds                                              |
-| ---------- | -------- | ------------------------------------ | -------------------------------------------------- |
-| `shared`   | JVM + JS | `org.scalalang.traits.shared`        | Domain model, tapir `Endpoints`, `Schemas`, `ApiError` |
-| `backend`  | JVM      | `org.scalalang.traits.backend`       | Netty-sync server, SQLite/Magnum store, auth, OpenAPI docs |
-| `frontend` | JS       | `org.scalalang.traits.frontend`      | Laminar SPA: board, SIP board, entry, versions, editor |
-
-`shared` is a pure cross-project; both sides depend on it so the HTTP shape
-can't drift.
-
 ## Build & verify
+
+Modules and how to run the app locally are in the
+[README](README.md#modules); `shared` is a pure cross-project, so the HTTP
+shape can't drift between the two sides.
 
 Use `sbt` via the Bash tool.
 
 * `sbt compile` — main compile across modules
-* `sbt Test/compile` / `sbt test` — tests (none yet; add munit suites under
-  `*/src/test/scala`)
-* `sbt backend/run` — start the API on `:8080` (sets `TRAITS_ENV=dev`). It does
-  **not** seed or otherwise initialise the DB; the store is the source of truth.
+* `sbt Test/compile` / `sbt test` — munit suites under `*/src/test/scala`
+* `sbt backend/run` — start the API on `:8080` (sets `TRAITS_ENV=dev`)
 * `sbt frontend/fastLinkJS` — link Scala.js for vite
 
 If you keep an interactive session running (`sbt "~frontend/fastLinkJS"`),
@@ -111,12 +102,9 @@ Magnum notes:
   ignores unknown keys, defaults fill absent ones) — but **renaming an enum case
   breaks every stored row**, since the case name is itself the wire format. That
   case needs a versioned `ujson`-level step plus a `search_text` rebuild; see
-  PLAN.md (Architecture → evolving the stored format).
+  [`PLAN.md`](PLAN.md) (Architecture → evolving the stored format).
 * The store is tiny and low-write; everything else (board placement, status in
   a version) is derived in code from the parsed documents, not queried in SQL.
-
-The DB is **not** re-seeded on start — deleting `traits-data/traits.sqlite*` leaves
-an empty store you'd repopulate through the editor UI or the HTTP API.
 
 ## Domain model (`shared/.../Domain.scala`)
 
@@ -156,21 +144,17 @@ type, add its `Schema` given to `Schemas`.
 
 ## Auth
 
-Public read; editor-gated writes. A single shared password
-(`TRAITS_EDITOR_PASSWORD`) is exchanged at `POST /api/auth/login` for an
-HMAC-signed session cookie (`SessionCodec`, `traits_session`). `AuthApi.requireEditor`
-is the gate. The session carries an `editor` identity string, so swapping in
-GitHub OAuth (committee allowlist) later is localised to `AuthApi` + `login`.
+`TRAITS_EDITOR_PASSWORD` is exchanged at `POST /api/auth/login` for an
+HMAC-signed cookie (`SessionCodec`, `traits_session`); `AuthApi.requireEditor`
+is the gate on every write. The session carries an `editor` identity string, so
+per-user auth later stays localised to `AuthApi` + `login`.
 
 ## Curation by external agents
 
-There is no in-process LLM. Curation happens over the HTTP API: a coding agent
-(Claude Code, Claude Desktop, …) reads the live OpenAPI spec at `/docs` (served
-by `tapir-swagger-ui-bundle` from the actual endpoints, so it can't drift),
-signs in with the shared password, and updates entries through `PUT`/`DELETE`.
-The agent does the web-reading the old enrichment stub couldn't; humans still
-drive and approve each write. The full workflow — auth, shapes, the `SipState`
-encoding, worked curl examples — is in `docs/agent-curation.md`.
+There is no in-process LLM. Curation happens over the HTTP API, against the
+live OpenAPI spec at `/docs` — served by `tapir-swagger-ui-bundle` from the
+actual endpoints, so it can't drift. Auth, wire shapes, the `SipState`
+encoding and worked examples are in [`docs/curation.md`](docs/curation.md).
 
 ## Frontend conventions
 
@@ -200,9 +184,21 @@ encoding, worked curl examples — is in `docs/agent-curation.md`.
 
 ## Code style
 
-**Minimise comments** (only when the *why* is non-obvious), no
-section banners, no scaladoc on trivial members. Keep the `Repo`/`Service`/`Api`
-split. One short summary line max where a doc comment earns its place.
+Keep the `Repo`/`Service`/`Api` split. No section banners, no scaladoc on
+trivial members.
+
+## Writing docs and comments
+
+Three rules, in this repo's markdown and its code alike:
+
+* **Be concise.** Say it once, in the one place it belongs, and link rather
+  than restate. A reader who has to skim is a reader who stops.
+* **Drop history that is no longer relevant.** Docs describe how things are
+  now, not how they got here — completed plans, superseded designs and
+  migration notes for migrations that are done all come out. Git remembers.
+* **Comment only what the code doesn't say itself.** Explain the *why* when it
+  is non-obvious; never restate the *what*. One short summary line where a doc
+  comment genuinely earns its place.
 
 ## Git
 
@@ -210,28 +206,3 @@ The repo is at `~/code/traits` (branch `main`). The convention: finish a
 change, get `compile` green, let the user test, then one clean commit when
 asked. Never amend/force-push. `frontend/package-lock.json` is tracked
 (only `node_modules/` and `dist/` are ignored).
-
-## Running locally
-
-```bash
-sbt backend/run                              # :8080 (no DB seeding)
-cd frontend && npm install && npm run dev    # :5173, proxies /api → :8080
-```
-
-Open http://localhost:5173. Config is env-vars (`Config.scala`), fail-closed:
-`sbt backend/run` sets `TRAITS_ENV=dev` so dev defaults apply; a
-packaged jar must set `TRAITS_SESSION_SECRET` / `TRAITS_EDITOR_PASSWORD`
-explicitly. Others: `TRAITS_HTTP_PORT`, `TRAITS_DB_PATH`, `TRAITS_DB_POOL_SIZE`,
-`TRAITS_STATIC_FILES`. Prod build: `cd frontend && npm run build` → `dist/`,
-served by the backend as static files.
-
-## Data
-
-The store starts empty — real curation is step 4 of [`PLAN.md`](PLAN.md)'s plan
-of work, entered from scratch against this model. The app never seeds it:
-deleting `traits-data/traits.sqlite*` leaves an empty store, and the SQLite file
-is the artifact to back up and deploy. Entries are written through the editor UI
-or the HTTP API ([`docs/agent-curation.md`](docs/agent-curation.md)); the
-sources they are curated from are listed in [`DATA.md`](DATA.md). (A deployed
-prototype DB may still contain the old `topic` table with sample data; it is
-orphaned and safe to drop.)

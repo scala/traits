@@ -8,8 +8,8 @@ and removed. For any change it answers *where does this stand, in which Scala
 version, and how do I use it?*
 
 It is public-facing and also a working tool for the SIP committee and the
-compiler team. A first version exists as a proof of concept; this document
-describes the model we are building for real, and the work to get there.
+compiler team. This document specifies the model; [`AGENTS.md`](AGENTS.md)
+describes the code that implements it.
 
 ---
 
@@ -251,7 +251,7 @@ without reshaping the endpoints.
 server. Curators point a coding agent they already run at the editor-gated HTTP
 API; it re-reads watched links, proposes updated entries, and every write is a
 visible change a human approves. No API keys or LLM ops in the app, and curators
-use whatever tools they prefer. See [`docs/agent-curation.md`](docs/agent-curation.md).
+use whatever tools they prefer. See [`docs/curation.md`](docs/curation.md).
 
 **Name.** Plain English — the characteristics of the language — quietly carrying
 the Scala meaning without being a pun you have to get. `org.scalalang.traits`.
@@ -270,11 +270,35 @@ reason it neither replaces nor is replaced by them.
 | scala3 PR queue and labels | stays as-is; we do not sync or duplicate it |
 | GitHub projects (LTS, 3.Next) | release planning, stays |
 | Milestones | reference for the version registry |
-| org project 4, "the evolution of Scala 3" | **replaced by this** |
-| Michal's feature spreadsheet | **replaced by this** |
+| [org project 4](https://github.com/orgs/scala/projects/4), "the evolution of Scala 3" | **replaced by this** |
+| [Michal's feature spreadsheet](https://docs.google.com/spreadsheets/d/1DZW9ePBgtyj5gjjByYNCHbbCpM7ppLNotumCVEunLIo/edit) | **replaced by this** |
 | Release notes | complementary: they cover everything, we cover the significant |
 
-Data sources for curation are listed in [`DATA.md`](DATA.md).
+### Sources
+
+Scope is changes since 3.0.0; features that shipped *in* 3.0.0 are out, at least
+for now. Curate from:
+
+**Releases** — the [Scala blog](https://www.scala-lang.org/blog/) (paginated
+`/blog/2/`, …) · [GitHub release notes](https://github.com/scala/scala3/releases)
+for every `3.x.0` · [milestones](https://github.com/scala/scala3/milestones) for
+what is planned and when.
+
+**SIPs** — the [SIP list](https://docs.scala-lang.org/sips/all.html) ·
+[open and closed PRs](https://github.com/scala/improvement-proposals/pulls),
+which usually link the forum thread ·
+[meeting results](https://docs.scala-lang.org/sips/meeting-results.html) (not
+fully up to date).
+
+**Reference** — the
+[language reference](https://docs.scala-lang.org/scala3/reference/) ·
+[what "preview" means versus experimental](https://docs.scala-lang.org/scala3/reference/preview/index.html)
+([background](https://github.com/scala/scala3/issues/22044)) · the
+[standard library change process](https://github.com/scala/scala3/blob/main/docs/_docs/contributing/procedures/contributing-to-stdlib.md).
+
+The two tools this replaces — org project 4 and the feature spreadsheet, both
+linked in the table above — are an input to the initial data entry rather than
+an ongoing source.
 
 ### Not doing
 
@@ -286,26 +310,13 @@ tracking bug fixes or performance work · replacing any GitHub workflow.
 
 ---
 
-## Plan of work
+## What's left
 
-0. **Review this document** with the compiler team and the SIP committee,
-   including the owners of the two tools it proposes to replace. *Pending.*
-1. **Model.** The types above, `statusIn`, and the validation rules, all with
-   tests. Pure `shared` module work — no storage or UI. This is the piece worth
-   getting right; the rest is mechanical. *Done.*
-2. **Version registry.** New entity, admin UI and API, seeded from scala3
-   milestones and releases. Blocks every version-scoped view. *Done.*
-3. **Views.** Version picker first, since it proves the computation, then the
-   SIP board, then entry pages. *Done.*
-4. **Curation and data.** Write the inclusion bar and the
-   timeline-vs-availability rule into the curation guide, then enter data from
-   the sources in `DATA.md` plus the spreadsheet and org project 4. The data
-   starts over from scratch. This is the long pole and it is human work.
-   *Pending — the deployed store holds test data for exercising the UI.*
-5. **API.** Version registry and version-scoped queries, public. *Done.*
+The model, the version registry, the views and the public API are built. Two
+things remain:
 
-The prototype's storage, auth, editor UI and OpenAPI setup carried over
-unchanged; its domain types, views and `/api/topics` routes were replaced by
-the model above (`Topic` became `Entry`, the changelog was dropped). Since the
-prototype's data was sample data and step 4 starts from scratch, no format
-migration was needed.
+* **Review this document** with the compiler team and the SIP committee,
+  including the owners of the two tools it proposes to replace.
+* **Enter the data.** The long pole, and human work: apply the inclusion bar
+  and the timeline-versus-availability rule to the sources above. The deployed
+  instance holds only a handful of entries so far.
