@@ -54,13 +54,20 @@ object Routes:
   val allRoutes: List[Route[? <: Page, ?]] =
     List(homeRoute, sipsRoute, versionsRoute, loginRoute, newEntryRoute, editEntryRoute, entryRoute)
 
+  // url-dsl builds a query URL as `path ++ "?" ++ params` whether or not any params are set, so
+  // `Page.Home()` with neither `v` nor `q` comes out as `/?`. Both push/replaceState build their
+  // URL through `relativeUrlForPage`, so overriding it fixes the address bar as well as `href`.
+  private def trimEmptyQuery(url: String): String = url.stripSuffix("?")
+
   lazy val router: Router[Page] = new Router[Page](
     routes = allRoutes,
     serializePage = write(_),
     deserializePage = read[Page](_),
     getPageTitle = _ => "Traits",
     routeFallback = _ => Page.Home()
-  )
+  ):
+    override def relativeUrlForPage(page: Page): String =
+      trimEmptyQuery(super.relativeUrlForPage(page))
 
   def urlFor(page: Page): String =
-    allRoutes.iterator.flatMap(_.relativeUrlForPage(page)).nextOption().getOrElse("/")
+    trimEmptyQuery(allRoutes.iterator.flatMap(_.relativeUrlForPage(page)).nextOption().getOrElse("/"))
