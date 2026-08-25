@@ -42,6 +42,10 @@ Then:
   `availability` rows, and duplicating them will eventually contradict.
 * `watch: true` on the SIP PR and any live thread; not on shipped release notes.
 * Summarise discussions in prose. Never quote non-public notes.
+* **Record decisions, not sentiment.** A vote, a deferral, a change of
+  direction belongs in the `timeline`; which way a discussion seemed to be
+  leaning does not. Publishing a predicted outcome ahead of the vote is unfair
+  to the proposer and is not something the committee has decided.
 
 The SIP page URL comes from `number` in the file's frontmatter, not its
 filename. Unmerged proposals get a frontmatter-only stub named after the PR
