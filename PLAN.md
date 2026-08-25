@@ -277,7 +277,8 @@ reason it neither replaces nor is replaced by them.
 ### Sources
 
 Scope is changes since 3.0.0; features that shipped *in* 3.0.0 are out, at least
-for now. Curate from:
+for now. These are where candidate entries are found;
+[`docs/research.md`](docs/research.md) is what to gather once you have one.
 
 **Releases** — the [Scala blog](https://www.scala-lang.org/blog/) (paginated
 `/blog/2/`, …) · [GitHub release notes](https://github.com/scala/scala3/releases)

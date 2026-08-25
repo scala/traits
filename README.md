@@ -54,5 +54,6 @@ agent at the HTTP API.
 | --- | --- |
 | [`PLAN.md`](PLAN.md) | design — the model, lifecycle, views, scope, sources |
 | [`AGENTS.md`](AGENTS.md) | conventions for working in this codebase |
+| [`docs/research.md`](docs/research.md) | the sources to gather before writing an entry |
 | [`docs/curation.md`](docs/curation.md) | curating the data with a coding agent, via the HTTP API |
 | [`docs/deploy.md`](docs/deploy.md) | deploying to the server |

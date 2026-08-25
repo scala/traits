@@ -156,6 +156,13 @@ live OpenAPI spec at `/docs` — served by `tapir-swagger-ui-bundle` from the
 actual endpoints, so it can't drift. Auth, wire shapes, the `SipState`
 encoding and worked examples are in [`docs/curation.md`](docs/curation.md).
 
+**Asked to add or update an entry? Work through
+[`docs/research.md`](docs/research.md) first.** It lists the six sources an
+entry is built from — SIP PR, published SIP, forum threads, release notes,
+meeting notes, implementation PRs — and which field each one fills. Fetch what
+you can and ask the user for the rest; the meeting notes are not public. Say
+which sources don't exist for the change rather than skipping them silently.
+
 ## Frontend conventions
 
 * **Routing: Waypoint.** Use the `staticRoute` helper (`Route.applyPF`) for

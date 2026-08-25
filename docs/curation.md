@@ -117,7 +117,8 @@ Note `GET /api/me`, not `/api/auth/me` — see the gotcha about wrong paths belo
 ## Data shapes
 
 The model — the two tracks, what carries forward, what earns an entry — is
-specified in [`PLAN.md`](../PLAN.md); read it before curating. On the wire:
+specified in [`PLAN.md`](../PLAN.md); read it before curating, and work through
+[`research.md`](research.md) for the sources to gather per entry. On the wire:
 
 A read returns an **`Entry`**; a write sends an **`EntryInput`**, which is an
 `Entry` minus `slug` (it's in the path) and `updatedAt` (stamped server-side).
