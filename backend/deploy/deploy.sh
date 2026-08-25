@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Deploy traits (backend + bundled frontend + seed DB) to the Hetzner box.
+# Deploy traits (backend + bundled frontend + seed DB) to the EPFL box.
 #
 #   Usage:  ./deploy.sh           # day-to-day: jar + frontend-dist + seed DB + image rebuild
 #           ./deploy.sh --infra   # also re-uploads Dockerfile + docker-compose.yml + entrypoint.sh
@@ -18,13 +18,13 @@
 #
 # NOTE: the seed DB only initialises an EMPTY data volume (see entrypoint.sh).
 # Once the live volume has data, redeploys keep it. To push a fresh dataset,
-# wipe the volume first:  ssh <host> 'cd <dir> && sudo docker compose down -v'.
+# wipe the volume first:  ssh <host> 'cd <dir> && docker compose down -v'.
 
 set -euo pipefail
 
-HOST="service@178.104.177.218"
-JUMP_HOST="service@192.168.1.6" # every ssh/scp proxies through this box
-REMOTE_DIR="/home/service/compose/traits"
+HOST="traits@icvm0191.epfl.ch"
+JUMP_HOST="traits@alaska.epfl.ch" # every ssh/scp proxies through this box
+REMOTE_DIR="/home/traits/compose/traits"
 
 rssh() { ssh -J "$JUMP_HOST" "$HOST" "$@"; }
 rscp() { scp -J "$JUMP_HOST" "$@"; }
@@ -138,19 +138,19 @@ rssh "rm -rf $REMOTE_DIR/frontend-dist && mkdir -p $REMOTE_DIR/frontend-dist"
 tar -C frontend/dist -cf - . | rssh "tar -C $REMOTE_DIR/frontend-dist -xf -"
 
 echo ">>> Rebuilding image and restarting container on $HOST"
-rssh "cd $REMOTE_DIR && sudo env GIT_SHA='$GIT_SHA' BUILD_TIME='$BUILD_TIME' docker compose up -d --build"
+rssh "bash -lc \"cd $REMOTE_DIR && env GIT_SHA='$GIT_SHA' BUILD_TIME='$BUILD_TIME' docker compose up -d --build\""
 
 echo ">>> Waiting for /api/health to report ok (via container)"
 for i in $(seq 1 40); do
-  if rssh "sudo docker exec traits-backend wget --quiet -O- http://localhost:8080/api/health" 2>/dev/null | grep -q '"status":"ok"'; then
+  if rssh "bash -lc \"docker exec traits-backend wget --quiet -O- http://localhost:8080/api/health\"" 2>/dev/null | grep -q '"status":"ok"'; then
     echo ">>> Healthy."
     break
   fi
   sleep 1
-  [[ $i -eq 40 ]] && echo "warning: /api/health not ok within 40s — check 'sudo docker compose logs traits-backend'" >&2
+  [[ $i -eq 40 ]] && echo "warning: /api/health not ok within 40s — check 'docker compose logs traits-backend'" >&2
 done
 
 echo ">>> Pruning stale images on $HOST"
-rssh "sudo docker image prune -af" > /dev/null
+rssh "bash -lc \"docker image prune -af\"" > /dev/null
 
 echo ">>> Deployed sha=$GIT_SHA at $BUILD_TIME"

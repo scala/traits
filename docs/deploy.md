@@ -1,26 +1,40 @@
 # Deploying traits
 
-traits deploys to a Hetzner box as a single Docker container (SQLite is an
-in-process file, so there's no separate DB service). Another service on the box
-already owns `127.0.0.1:8080`, so traits publishes on **`127.0.0.1:8090`**, and
-host nginx proxies a subdomain to it.
+traits deploys to an EPFL box as a single container (SQLite is an in-process
+file, so there's no separate DB service). traits publishes on
+**`127.0.0.1:8090`**, carried over from the previous box where another service
+held 8080. Nothing holds 8080 here, but nginx is configured against 8090, so
+moving it means editing both. Host nginx proxies the subdomain to it.
 
 Everything lives in [`backend/deploy/`](../backend/deploy/): `Dockerfile`,
 `entrypoint.sh`, `docker-compose.yml`, `.env.example`, and `deploy.sh`.
 
 ## Target
 
-- **Host**: `service@178.104.177.218`
-- **Compose dir**: `/home/service/compose/traits`
+- **Host**: `traits@icvm0191.epfl.ch`
+- **Compose dir**: `/home/traits/compose/traits`
 - **Internal**: container listens on `8080`, published to `127.0.0.1:8090`
-- **Public URL**: `https://traits.ddns.net` (DDNS hostname → the box's IP)
+- **Public URL**: `https://traits.scala-lang.org` (CNAME → `icvm0191.epfl.ch`)
 
 Host and remote dir are hard-coded near the top of
 [`backend/deploy/deploy.sh`](../backend/deploy/deploy.sh) — edit there if the box moves.
 
+Containers run on **rootless Podman**, not Docker. The `docker` CLI and its
+`compose` plugin are pointed at `unix://$XDG_RUNTIME_DIR/podman/podman.sock`
+by `DOCKER_HOST`, exported from `~/.profile`. Only a *login* shell reads that
+file, so every non-interactive remote command — in `deploy.sh` and in this doc
+alike — goes through `bash -lc`. Without it `DOCKER_HOST` is unset, the CLI
+falls back to `/var/run/docker.sock`, and you get `permission denied`.
+
+Rootless Podman is also why nothing needs `sudo` — just as well, since the
+`traits` user has no passwordless sudo and is in no `docker` group.
+`deploy.sh` drives Compose **v2** (`docker compose`). The box also still has
+the unmaintained v1 `docker-compose` 1.29.2, which created the original
+container; v2 adopts it and the `traits_traits-data` volume unchanged.
+
 ```
 public internet
-   │  HTTPS  (traits.ddns.net, Let's Encrypt cert via host nginx + certbot)
+   │  HTTPS  (traits.scala-lang.org, Let's Encrypt cert via host nginx + certbot)
    ▼
 host nginx ── proxy_pass http://127.0.0.1:8090 ──► traits-backend container
                                                     (tapir-netty-sync; /api, /docs, SPA)
@@ -36,9 +50,9 @@ the live site survive redeploys.
 
 ### 1. DNS
 
-`traits.ddns.net` already points at `178.104.177.218` (keep the DDNS updater
-running so it stays pointed — Let's Encrypt re-checks on renewal). Make sure
-`:80`/`:443` are reachable (needed for the Let's Encrypt HTTP-01 challenge).
+`traits.scala-lang.org` must resolve to `icvm0191.epfl.ch` (A record, or a
+CNAME to the box). Make sure `:80`/`:443` are reachable — needed for the Let's
+Encrypt HTTP-01 challenge, both at issuance and on every renewal.
 
 ### 2. Push infra + build, from your laptop
 
@@ -54,8 +68,8 @@ next.
 ### 3. Write `.env` on the server
 
 ```sh
-ssh -J service@192.168.1.6 service@178.104.177.218
-cd /home/service/compose/traits
+ssh -J traits@alaska.epfl.ch traits@icvm0191.epfl.ch
+cd /home/traits/compose/traits
 cp /dev/stdin .env <<'EOF'
 # paste backend/deploy/.env.example and fill in the blanks:
 TRAITS_ENV=prod
@@ -64,8 +78,8 @@ TRAITS_EDITOR_PASSWORD=<a real password — NOT let-me-in>
 EOF
 chmod 600 .env
 
-sudo docker compose up -d
-sudo docker compose logs -f traits-backend     # watch startup; expect "seeding …" then the server line
+docker compose up -d
+docker compose logs -f traits-backend     # watch startup; expect "seeding …" then the server line
 ```
 
 `.env` is **never** overwritten by `deploy.sh`. Reads are public; the editor
@@ -74,14 +88,14 @@ password is all that gates create/edit/delete — share it only with reviewers.
 ### 4. Point nginx at traits + issue the cert
 
 ```sh
-sudo tee /etc/nginx/sites-available/traits.ddns.net > /dev/null <<'EOF'
+sudo tee /etc/nginx/sites-available/traits.scala-lang.org > /dev/null <<'EOF'
 # Rate-limit the login endpoint (10 req/min per IP).
 limit_req_zone $binary_remote_addr zone=traits_auth:10m rate=10r/m;
 
 server {
     listen 80;
     listen [::]:80;
-    server_name traits.ddns.net;
+    server_name traits.scala-lang.org;
 
     location = /api/auth/login {
         limit_req zone=traits_auth burst=10 nodelay;
@@ -106,17 +120,17 @@ server {
 }
 EOF
 
-sudo ln -s /etc/nginx/sites-available/traits.ddns.net \
-           /etc/nginx/sites-enabled/traits.ddns.net
+sudo ln -s /etc/nginx/sites-available/traits.scala-lang.org \
+           /etc/nginx/sites-enabled/traits.scala-lang.org
 sudo nginx -t && sudo systemctl reload nginx
-curl -s http://traits.ddns.net/api/health       # → {"status":"ok","entryCount":0}
+curl -s http://traits.scala-lang.org/api/health       # → {"status":"ok","entryCount":0}
 
-sudo certbot --nginx -d traits.ddns.net          # pick "2: Redirect"
-curl -s https://traits.ddns.net/api/health       # → {"status":"ok",...} over TLS
+sudo certbot --nginx -d traits.scala-lang.org          # pick "2: Redirect"
+curl -s https://traits.scala-lang.org/api/health       # → {"status":"ok",...} over TLS
 ```
 
-Open `https://traits.ddns.net` — the boards, entry pages, version registry and
-the `/docs` API browser are all served by the one container.
+Open `https://traits.scala-lang.org` — the boards, entry pages, version
+registry and the `/docs` API browser are all served by the one container.
 
 ## Day-to-day deploys
 
@@ -140,8 +154,8 @@ To work locally against production data, copy the SQLite file out of the
 
 ```sh
 mkdir -p traits-data
-ssh -J service@192.168.1.6 service@178.104.177.218 \
-  "sudo docker exec traits-backend tar -C /app/data -cf - traits.sqlite traits.sqlite-wal" \
+ssh -J traits@alaska.epfl.ch traits@icvm0191.epfl.ch \
+  "bash -lc 'docker exec traits-backend tar -C /app/data -cf - traits.sqlite traits.sqlite-wal'" \
   | tar -C traits-data -xf -
 
 # fold the WAL into the main file
@@ -152,15 +166,15 @@ The `-wal` is not optional. The DB runs in WAL mode and the live
 `traits.sqlite` may not have been checkpointed for months, so copying it alone
 can hand you a long-stale dataset. Skip `-shm`; SQLite rebuilds it.
 
-The copy is only non-atomic if a write lands mid-`tar`. There is no `sqlite3` or
-`python3` on the server or in the JRE image to take a proper `.backup()`
-snapshot, so for a guaranteed-consistent copy stop the container first — a clean
-shutdown checkpoints the WAL:
+The copy is only non-atomic if a write lands mid-`tar`. The JRE image has
+neither `sqlite3` nor `python3`, so a proper `.backup()` snapshot can't be taken
+from inside the container; for a guaranteed-consistent copy stop it first — a
+clean shutdown checkpoints the WAL:
 
 ```sh
-ssh -J service@192.168.1.6 service@178.104.177.218 'cd /home/service/compose/traits && sudo docker compose stop traits-backend'
+ssh -J traits@alaska.epfl.ch traits@icvm0191.epfl.ch 'bash -lc "cd /home/traits/compose/traits && docker compose stop traits-backend"'
 # ... tar copy as above ...
-ssh -J service@192.168.1.6 service@178.104.177.218 'cd /home/service/compose/traits && sudo docker compose start traits-backend'
+ssh -J traits@alaska.epfl.ch traits@icvm0191.epfl.ch 'bash -lc "cd /home/traits/compose/traits && docker compose start traits-backend"'
 ```
 
 Note that once a local DB exists, the next deploy snapshots it as the seed
@@ -173,15 +187,15 @@ If you want the live DB replaced with your current local one, drop the volume so
 the next deploy re-seeds:
 
 ```sh
-ssh -J service@192.168.1.6 service@178.104.177.218 'cd /home/service/compose/traits && sudo docker compose down -v'
+ssh -J traits@alaska.epfl.ch traits@icvm0191.epfl.ch 'bash -lc "cd /home/traits/compose/traits && docker compose down -v"'
 ./backend/deploy/deploy.sh
 ```
 
 ## Logs & verifying
 
 ```sh
-ssh -J service@192.168.1.6 service@178.104.177.218 'cd /home/service/compose/traits && sudo docker compose logs -f'
-curl https://traits.ddns.net/api/health     # entry count doubles as a readiness probe
+ssh -J traits@alaska.epfl.ch traits@icvm0191.epfl.ch 'bash -lc "cd /home/traits/compose/traits && docker compose logs -f"'
+curl https://traits.scala-lang.org/api/health     # entry count doubles as a readiness probe
 ```
 
 json-file logging is capped at 10 MB × 5 files.

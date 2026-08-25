@@ -16,8 +16,8 @@ so it can't drift from what the server does:
 
 | | Local dev | Live |
 | --- | --- | --- |
-| Swagger UI | `http://localhost:8080/docs` | `https://traits.ddns.net/docs` |
-| Spec | `http://localhost:8080/docs/docs.yaml` | `https://traits.ddns.net/docs/docs.yaml` |
+| Swagger UI | `http://localhost:8080/docs` | `https://traits.scala-lang.org/docs` |
+| Spec | `http://localhost:8080/docs/docs.yaml` | `https://traits.scala-lang.org/docs/docs.yaml` |
 
 ## Setup: local dev instance
 
@@ -80,11 +80,11 @@ agent's context:
 
 ```bash
 curl -sS -b .traits-cookies -c .traits-cookies \
-  -X POST https://traits.ddns.net/api/auth/login \
+  -X POST https://traits.scala-lang.org/api/auth/login \
   -H 'Content-Type: application/json' \
   -d "$(jq -n --arg p "$(cat .secret)" '{password:$p}')"
 
-curl -sS -b .traits-cookies https://traits.ddns.net/api/me
+curl -sS -b .traits-cookies https://traits.scala-lang.org/api/me
 # → {"name":"editor"}
 ```
 
@@ -198,7 +198,7 @@ fallback. When unsure of a shape, `GET` an existing entry and mirror it.
 
 ## Workflows
 
-`$BASE` below is `http://localhost:8080` or `https://traits.ddns.net`; the
+`$BASE` below is `http://localhost:8080` or `https://traits.scala-lang.org`; the
 cookie jar is always `.traits-cookies`.
 
 **Update an existing entry** — `PUT` is a whole-document *replace*, not a
