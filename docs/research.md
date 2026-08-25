@@ -8,6 +8,13 @@ included, since rejected and withdrawn proposals are closed. Its labels give
 `sip.state`, the URL is a `Pr` link, and votes or changes of direction are dated
 `timeline` events.
 
+**PR label history** — the `labeled`/`unlabeled` events from `gh api
+repos/scala/improvement-proposals/issues/<n>/timeline`. This dates every state
+transition, including votes whose meeting notes you can't reach, and it is the
+reliable date for acceptance: a proposal is accepted when `status:under-review`
+gives way to `status:waiting-for-implementation`, often months before the
+document merges. Don't read the merge date as the acceptance date.
+
 **Published SIP** — `docs.scala-lang.org/sips/<number>.html`, indexed at
 `all.html`. For a completed proposal this is `sip.url`; while one is still
 unmerged its page is only a stub, so use the PR URL until it lands.
