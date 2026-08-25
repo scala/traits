@@ -200,14 +200,20 @@ object Board:
 
   /** Where an entry shows on the board computed for `v`, or `None` if hidden there. Hidden:
     * archived entries; entries removed before `v` (removal carries forward in the data but is shown
-    * only in the version it happened); entries whose availability starts only in a later,
-    * already-released version.
+    * only in the version it happened); entries whose availability starts only in a later version.
+    *
+    * The one exception is work that has not shipped yet: on the board for the latest released
+    * version — the default view, and the only one that means "now" — an entry whose availability
+    * starts in a version that is not out yet is shown in its stage, badged with that version, so
+    * in-flight work does not vanish. `latestReleased` is what identifies that board; every other
+    * board, past or planned, shows only what is actually in effect there.
     */
   def cell(
       availability: List[Availability],
       archived: Boolean,
       v: VersionId,
-      released: VersionId => Boolean
+      released: VersionId => Boolean,
+      latestReleased: Option[VersionId]
   ): Option[BoardCell] =
     if archived then None
     else
@@ -218,7 +224,7 @@ object Board:
         case None =>
           val mainline = availability.filter(a => !a.backport && a.version.isDefined)
           mainline.minByOption(_.version) match
-            case Some(next) if !next.version.forall(released) =>
+            case Some(next) if !next.version.forall(released) && latestReleased.forall(_ == v) =>
               Some(BoardCell(BoardColumn.of(next.stage), Some(next), upcoming = true))
             case Some(_) => None
             case None =>

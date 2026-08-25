@@ -78,8 +78,9 @@ class BoardSuite extends munit.FunSuite:
 
   private def v(s: String)             = VersionId.parse(s).get
   private val released: Set[VersionId] = (0 to 8).map(VersionId(3, _)).toSet
+  private val latestReleased = released.maxOption
   private def cell(availability: List[Availability], at: String, archived: Boolean = false) =
-    Board.cell(availability, archived, v(at), released)
+    Board.cell(availability, archived, v(at), released, latestReleased)
 
   private def main(stage: AvailabilityStage, version: String) =
     Availability(stage, Some(v(version)))
@@ -133,6 +134,26 @@ class BoardSuite extends munit.FunSuite:
   test("availability starting in a later released version is hidden on older boards") {
     val a = List(main(AvailabilityStage.Experimental, "3.6"))
     assertEquals(cell(a, "3.4"), None)
+  }
+
+  test("upcoming shows only on the latest released board, not on older ones") {
+    val a = List(main(AvailabilityStage.Experimental, "3.10"))
+    assertEquals(cell(a, "3.8").map(_.upcoming), Some(true)) // latest released
+    assertEquals(cell(a, "3.2"), None)                       // history
+    assertEquals(cell(a, "3.0"), None)
+  }
+
+  test("upcoming does not leak onto a planned board earlier than the availability") {
+    val a = List(main(AvailabilityStage.Experimental, "3.10"))
+    assertEquals(cell(a, "3.9"), None)
+  }
+
+  test("with nothing released, upcoming still shows") {
+    val a = List(main(AvailabilityStage.Experimental, "3.10"))
+    assertEquals(
+      Board.cell(a, archived = false, v("3.8"), Set.empty[VersionId], None).map(_.upcoming),
+      Some(true)
+    )
   }
 
 class ValidateSuite extends munit.FunSuite:

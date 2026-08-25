@@ -203,11 +203,13 @@ history at render time.
 * **Pipeline (home)** — entries grouped by availability stage, which every
   entry has a position in: `Idea` (no availability at all) · `PullRequest` ·
   `Experimental` · `Preview` · `Stable` · `Deprecated` · `Removed`. Computed
-  for the latest released version, with two carve-outs so in-flight work stays
-  visible: entries with no versioned availability always show, and entries
-  whose only availability is in an unreleased version show in their stage
-  badged with the version. Archived entries are hidden. Cards carry a SIP
-  badge.
+  for the latest released version. Two exceptions keep in-flight work visible
+  there: entries with no versioned availability always show, and entries whose
+  only availability is in a version that is not out yet show in their stage,
+  badged with that version. **Both apply only to the latest-released board**,
+  the one that means "now" — every other board shows what was actually in
+  effect in that version, so a feature landing in 3.10 does not appear on the
+  3.2 board. Archived entries are hidden. Cards carry a SIP badge.
 * **Version picker** — the same board computed for any chosen version.
 * **SIP board** — a separate view, columns are SIP stages, only entries with a
   SIP.

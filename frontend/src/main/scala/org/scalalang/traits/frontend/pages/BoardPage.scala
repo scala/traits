@@ -116,8 +116,9 @@ object BoardPage:
       v: VersionId,
       released: Set[VersionId]
   ): HtmlElement =
+    val latest = released.maxOption
     val cells =
-      entries.flatMap(e => Board.cell(e.availability, e.archived, v, released).map(e -> _))
+      entries.flatMap(e => Board.cell(e.availability, e.archived, v, released, latest).map(e -> _))
     val byColumn = cells.groupBy(_._2.column)
     Components.board(
       BoardColumn.all.map { c =>
