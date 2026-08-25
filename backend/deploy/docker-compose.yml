@@ -2,8 +2,8 @@
 #
 # Single service (SQLite is an in-process file, no DB container). traits
 # publishes on 127.0.0.1:8090, carried over from the previous box where another
-# service held 8080. Nothing holds 8080 here, but nginx is configured against
-# 8090. Host nginx proxies https://<subdomain> → :8090.
+# service held 8080. Nothing holds 8080 here, but the host's reverse proxy is
+# configured against 8090, and terminates TLS for https://<subdomain>.
 #
 # The deploy script scp's this file (plus Dockerfile + entrypoint.sh) once via
 # --infra, then re-uploads only traits.jar + frontend-dist + seed.sqlite on

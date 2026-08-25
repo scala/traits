@@ -3,8 +3,9 @@
 traits deploys to an EPFL box as a single container (SQLite is an in-process
 file, so there's no separate DB service). traits publishes on
 **`127.0.0.1:8090`**, carried over from the previous box where another service
-held 8080. Nothing holds 8080 here, but nginx is configured against 8090, so
-moving it means editing both. Host nginx proxies the subdomain to it.
+held 8080. Nothing holds 8080 here, but the host's reverse proxy is configured
+against 8090, so moving it means editing both. That proxy terminates TLS and
+forwards the subdomain to it.
 
 Everything lives in [`backend/deploy/`](../backend/deploy/): `Dockerfile`,
 `entrypoint.sh`, `docker-compose.yml`, `.env.example`, and `deploy.sh`.
@@ -34,11 +35,11 @@ container; v2 adopts it and the `traits_traits-data` volume unchanged.
 
 ```
 public internet
-   │  HTTPS  (traits.scala-lang.org, Let's Encrypt cert via host nginx + certbot)
+   │  HTTPS  (traits.scala-lang.org, Let's Encrypt cert on the host)
    ▼
-host nginx ── proxy_pass http://127.0.0.1:8090 ──► traits-backend container
-                                                    (tapir-netty-sync; /api, /docs, SPA)
-                                                        └── traits-data volume (SQLite)
+host reverse proxy ──► http://127.0.0.1:8090 ──► traits-backend container
+                                                  (tapir-netty-sync; /api, /docs, SPA)
+                                                      └── traits-data volume (SQLite)
 ```
 
 The SQLite store lives on the `traits-data` named volume. On the **first** boot
@@ -85,48 +86,24 @@ docker compose logs -f traits-backend     # watch startup; expect "seeding …" 
 `.env` is **never** overwritten by `deploy.sh`. Reads are public; the editor
 password is all that gates create/edit/delete — share it only with reviewers.
 
-### 4. Point nginx at traits + issue the cert
+### 4. Put a reverse proxy in front
+
+The container speaks plain HTTP on `127.0.0.1:8090` and is not exposed
+directly. TLS terminates in a reverse proxy on the host, with a Let's Encrypt
+certificate. Which proxy is a host decision and deliberately not recorded here;
+whatever it is, it needs to:
+
+- serve `traits.scala-lang.org` over HTTPS and redirect `:80` → `:443`
+- forward everything to `http://127.0.0.1:8090`, passing the original host and
+  scheme through so generated links and the `Secure` session cookie stay correct
+- rate-limit `POST /api/auth/login` — the editor password is the only thing
+  between the public and write access, so this is the one endpoint worth
+  throttling
+
+Then check it end to end:
 
 ```sh
-sudo tee /etc/nginx/sites-available/traits.scala-lang.org > /dev/null <<'EOF'
-# Rate-limit the login endpoint (10 req/min per IP).
-limit_req_zone $binary_remote_addr zone=traits_auth:10m rate=10r/m;
-
-server {
-    listen 80;
-    listen [::]:80;
-    server_name traits.scala-lang.org;
-
-    location = /api/auth/login {
-        limit_req zone=traits_auth burst=10 nodelay;
-        limit_req_status 429;
-        proxy_pass http://127.0.0.1:8090;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location / {
-        proxy_pass http://127.0.0.1:8090;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 60s;
-    }
-}
-EOF
-
-sudo ln -s /etc/nginx/sites-available/traits.scala-lang.org \
-           /etc/nginx/sites-enabled/traits.scala-lang.org
-sudo nginx -t && sudo systemctl reload nginx
-curl -s http://traits.scala-lang.org/api/health       # → {"status":"ok","entryCount":0}
-
-sudo certbot --nginx -d traits.scala-lang.org          # pick "2: Redirect"
-curl -s https://traits.scala-lang.org/api/health       # → {"status":"ok",...} over TLS
+curl -s https://traits.scala-lang.org/api/health   # → {"status":"ok","entryCount":…}
 ```
 
 Open `https://traits.scala-lang.org` — the boards, entry pages, version
