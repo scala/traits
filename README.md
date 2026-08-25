@@ -57,3 +57,4 @@ agent at the HTTP API.
 | [`docs/research.md`](docs/research.md) | the sources to gather before writing an entry |
 | [`docs/curation.md`](docs/curation.md) | curating the data with a coding agent, via the HTTP API |
 | [`docs/deploy.md`](docs/deploy.md) | deploying to the server |
+| [`docs/sip-findings.md`](docs/sip-findings.md) | what curating the open SIPs turned up, and what still needs doing |

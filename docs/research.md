@@ -6,7 +6,18 @@ Say which ones don't exist for this change; never skip one silently.
 **SIP PR** — `github.com/scala/improvement-proposals/pulls`, closed ones
 included, since rejected and withdrawn proposals are closed. Its labels give
 `sip.state`, the URL is a `Pr` link, and votes or changes of direction are dated
-`timeline` events.
+`timeline` events. Read the comments too: they are public, and a manager's
+requirements or an author's "this already shipped in 3.5" often settle what the
+entry should say.
+
+**The proposal document** — the `.md` the PR adds or changes, or the merged one
+under `content/`. Its summary is the entry's Overview and its History table
+gives dated drafts and revisions; it also cites the issues and PRs the proposal
+rests on. For an unmerged PR the file exists only in the diff — `raw_url` comes
+back empty, so fetch `contents_url` from
+`gh api repos/scala/improvement-proposals/pulls/<n>/files`. Its frontmatter may
+name the forum thread in `presip-thread`, which saves a search when it isn't the
+`pre-sip-foo-bar/9999` placeholder.
 
 **PR label history** — the `labeled`/`unlabeled` events from `gh api
 repos/scala/improvement-proposals/issues/<n>/timeline`. This dates every state
@@ -34,6 +45,20 @@ outcomes become `timeline` events.
 
 **Implementation PRs** — `github.com/scala/scala3/pulls`. The evidence for
 `availability` rows, and backport PRs are the only source for `backport: true`.
+A PR's **milestone** dates the stage directly, when it has one.
+
+**How the feature is gated** — `library/src/scala/language.scala` and
+`library/src/scala/runtime/stdLibPatches/language.scala` hold the
+`language.experimental.*` objects, `compiler/.../config/ScalaSettings.scala` the
+`-Y` flags, and library types carry `@experimental`. This is what the
+`availability` note should say, and often the answer to whether a feature is
+experimental at all.
+
+**Which release actually has it** — fetch the same file at a tag or branch
+(`?ref=3.9.0-RC6`, `?ref=main`, `?ref=3.3.0`) and see whether the flag is there.
+Many PRs carry no milestone, and a PR merged after a release branch was cut
+lands in the *next* minor, not the one in progress. Check rather than infer:
+this is what separates a verified `availability` row from a plausible one.
 
 Then:
 

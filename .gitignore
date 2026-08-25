@@ -13,11 +13,8 @@ frontend/dist/
 *.sqlite-shm
 *.sqlite-wal
 traits-data/
-.playwright-mcp/
 .secret
 .env
 .traits-cookies
 # SIP committee meeting notes — not public, never commit
 sip-meeting-notes/
-# scratch working list, not part of the repo
-sip-queue.md
