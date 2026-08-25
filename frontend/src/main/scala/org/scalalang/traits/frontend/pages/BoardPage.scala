@@ -6,6 +6,8 @@ import org.scalalang.traits.frontend.Api.given
 import org.scalalang.traits.shared.*
 import com.raquo.laminar.api.L.*
 
+import scala.math.Ordering.Implicits.infixOrderingOps
+
 /** Home view: the pipeline, one stacked section per availability stage plus Idea, computed for a
   * picked version (default: the latest released one), with a count strip on top. The picked version
   * and the text filter are URL query params (`/?v=3.4&q=tuple`) — the URL is the source of truth,
@@ -111,31 +113,62 @@ object BoardPage:
       .reverse
       .orElseBy(_._1.title)
 
+  private def sections(
+      cells: List[(EntrySummary, BoardCell)],
+      columns: List[BoardColumn],
+      anchorPrefix: String,
+      upcoming: Boolean
+  ): List[Components.BoardSection] =
+    val byColumn = cells.groupBy(_._2.column)
+    columns.map { c =>
+      Components.BoardSection(
+        anchorId = s"$anchorPrefix-$c",
+        label = BoardColumn.label(c),
+        colorCls = Components.columnClasses(c),
+        cards = byColumn.getOrElse(c, Nil).sorted(using cardOrder).map(card(_, upcoming))
+      )
+    }
+
+  /** The board for `v`, then either the upcoming section or — on a version older than the latest
+    * release — a note pointing at where upcoming work is shown. A historical board is a snapshot of
+    * that version, so work that had not landed by then is deliberately absent from it.
+    */
   private def board(
       entries: List[EntrySummary],
       v: VersionId,
       released: Set[VersionId]
   ): HtmlElement =
-    val latest = released.maxOption
-    val cells =
-      entries.flatMap(e => Board.cell(e.availability, e.archived, v, released, latest).map(e -> _))
-    val byColumn = cells.groupBy(_._2.column)
-    Components.board(
-      BoardColumn.all.map { c =>
-        val items = byColumn.getOrElse(c, Nil).sorted(using cardOrder)
-        Components.BoardSection(
-          anchorId = s"stage-$c",
-          label = BoardColumn.label(c),
-          colorCls = Components.columnClasses(c),
-          cards = items.map(card)
+    val latest     = released.maxOption
+    val historical = latest.exists(v < _)
+    val inVersion  = entries.flatMap(e => Board.cell(e.availability, e.archived, v).map(e -> _))
+    val ahead      = entries.flatMap(e => Board.upcoming(e.availability, e.archived, v).map(e -> _))
+    div(
+      Components.board(sections(inVersion, BoardColumn.inVersion, "stage", upcoming = false)),
+      if historical then
+        div(
+          cls := "mt-10 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600",
+          s"Showing Scala ${v.render} as it was. ",
+          latest
+            .map(l => span(s"To see upcoming work, select ${l.render} or newer."))
+            .getOrElse(emptyNode)
         )
-      }
+      else if ahead.isEmpty then emptyNode
+      else
+        div(
+          cls := "mt-10 pt-8 border-t border-slate-200",
+          Components.pageTitle("Upcoming"),
+          Components.subtitle(s"Not in ${v.render} yet — on the way, or still an idea."),
+          div(
+            cls := "mt-5",
+            Components.board(sections(ahead, BoardColumn.upcoming, "upcoming", upcoming = true))
+          )
+        )
     )
 
-  private def card(item: (EntrySummary, BoardCell)): HtmlElement =
+  private def card(item: (EntrySummary, BoardCell), upcoming: Boolean): HtmlElement =
     val (e, cell) = item
     val statusLine: Node = cell.status match
-      case Some(a) if cell.upcoming =>
+      case Some(a) if upcoming =>
         div(
           cls := "mt-1",
           Components.badge(

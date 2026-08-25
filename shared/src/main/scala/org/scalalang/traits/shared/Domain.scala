@@ -164,14 +164,20 @@ object Availability:
       duplicates(backport = false, "main-line availability") ++
       duplicates(backport = true, "backport")
 
-/** A pipeline-board column: the availability stages plus `Idea` for entries with no availability at
-  * all.
+/** A pipeline-board column. The first five are what an entry can actually *be* in a version; `Idea`
+  * and `PullRequest` are not available in any version and only ever appear in the upcoming section.
   */
 enum BoardColumn:
   case Idea, PullRequest, Experimental, Preview, Stable, Deprecated, Removed
 
 object BoardColumn:
   val all: List[BoardColumn] = values.toList
+
+  /** Columns describing a state a version can actually be in, newest-first order of the track. */
+  val inVersion: List[BoardColumn] = List(Experimental, Preview, Stable, Deprecated, Removed)
+
+  /** Columns for work that has not landed: nearest to shipping first. */
+  val upcoming: List[BoardColumn] = List(Experimental, Preview, Stable, PullRequest, Idea)
 
   def of(s: AvailabilityStage): BoardColumn = s match
     case AvailabilityStage.PullRequest  => PullRequest
@@ -190,51 +196,52 @@ object BoardColumn:
     case Deprecated   => "Deprecated"
     case Removed      => "Removed"
 
-/** An entry's placement on the per-version board. `status` is the availability entry behind the
-  * placement (absent only for `Idea`); `upcoming` marks the carve-out where the entry's first
-  * availability is in an unreleased version, shown badged with that version.
+/** An entry's placement, either in a version or in the upcoming section. `status` is the
+  * availability behind it, absent only for `Idea`.
   */
-case class BoardCell(column: BoardColumn, status: Option[Availability], upcoming: Boolean)
+case class BoardCell(column: BoardColumn, status: Option[Availability])
 
 object Board:
 
-  /** Where an entry shows on the board computed for `v`, or `None` if hidden there. Hidden:
-    * archived entries; entries removed before `v` (removal carries forward in the data but is shown
-    * only in the version it happened); entries whose availability starts only in a later version.
+  /** Where an entry shows on the board **for version `v`**, or `None` if it has no state there.
     *
-    * The one exception is work that has not shipped yet: on the board for the latest released
-    * version — the default view, and the only one that means "now" — an entry whose availability
-    * starts in a version that is not out yet is shown in its stage, badged with that version, so
-    * in-flight work does not vanish. `latestReleased` is what identifies that board; every other
-    * board, past or planned, shows only what is actually in effect there.
+    * This answers only "what is this entry in `v`" — an entry with no availability at or before
+    * `v`, one that is only an idea, and one whose implementation is still a pull request all return
+    * `None`. Work that has not landed in `v` is [[upcoming]]'s question, not this one.
+    *
+    * Also `None` for archived entries, and for an entry removed before `v`: removal carries forward
+    * in the data, but is shown only in the version where it happened.
     */
-  def cell(
-      availability: List[Availability],
-      archived: Boolean,
-      v: VersionId,
-      released: VersionId => Boolean,
-      latestReleased: Option[VersionId]
-  ): Option[BoardCell] =
+  def cell(availability: List[Availability], archived: Boolean, v: VersionId): Option[BoardCell] =
     if archived then None
     else
-      Availability.statusIn(availability, v) match
-        case Some(a) =>
-          if a.stage == AvailabilityStage.Removed && !a.version.contains(v) then None
-          else Some(BoardCell(BoardColumn.of(a.stage), Some(a), upcoming = false))
+      Availability.statusIn(availability, v).flatMap { a =>
+        if a.stage == AvailabilityStage.Removed && !a.version.contains(v) then None
+        else Some(BoardCell(BoardColumn.of(a.stage), Some(a)))
+      }
+
+  /** Where an entry shows in the **upcoming** section alongside the board for `v`: work that has no
+    * state in `v` yet but is on its way. In order of nearness to shipping — the earliest
+    * availability in a version after `v`, else an open pull request, else an idea with nothing at
+    * all recorded.
+    *
+    * `None` when the entry already has a state in `v` (it belongs on the board itself), when it is
+    * archived, or when its availability lies entirely at or before `v`.
+    */
+  def upcoming(
+      availability: List[Availability],
+      archived: Boolean,
+      v: VersionId
+  ): Option[BoardCell] =
+    if archived || cell(availability, archived, v).isDefined then None
+    else
+      val later = availability.filter(a => !a.backport && a.version.exists(_ > v))
+      later.minByOption(_.version) match
+        case Some(next) => Some(BoardCell(BoardColumn.of(next.stage), Some(next)))
         case None =>
-          val mainline = availability.filter(a => !a.backport && a.version.isDefined)
-          mainline.minByOption(_.version) match
-            case Some(next) if !next.version.forall(released) && latestReleased.forall(_ == v) =>
-              Some(BoardCell(BoardColumn.of(next.stage), Some(next), upcoming = true))
-            case Some(_) => None
-            case None =>
-              availability.find(_.stage == AvailabilityStage.PullRequest) match
-                case Some(pr) =>
-                  Some(BoardCell(BoardColumn.PullRequest, Some(pr), upcoming = false))
-                case None =>
-                  if availability.isEmpty then
-                    Some(BoardCell(BoardColumn.Idea, None, upcoming = false))
-                  else None
+          availability.find(_.stage == AvailabilityStage.PullRequest) match
+            case Some(pr) => Some(BoardCell(BoardColumn.PullRequest, Some(pr)))
+            case None     => Option.when(availability.isEmpty)(BoardCell(BoardColumn.Idea, None))
 
 enum LinkKind derives ReadWriter:
   case Sip, Pr, Issue, ForumThread, Doc, Other

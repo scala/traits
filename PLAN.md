@@ -200,16 +200,26 @@ history at render time.
 
 ## Views and API
 
-* **Pipeline (home)** — entries grouped by availability stage, which every
-  entry has a position in: `Idea` (no availability at all) · `PullRequest` ·
-  `Experimental` · `Preview` · `Stable` · `Deprecated` · `Removed`. Computed
-  for the latest released version. Two exceptions keep in-flight work visible
-  there: entries with no versioned availability always show, and entries whose
-  only availability is in a version that is not out yet show in their stage,
-  badged with that version. **Both apply only to the latest-released board**,
-  the one that means "now" — every other board shows what was actually in
-  effect in that version, so a feature landing in 3.10 does not appear on the
-  3.2 board. Archived entries are hidden. Cards carry a SIP badge.
+* **Pipeline (home)** — two sections, answering two different questions about
+  a picked version (default: the latest released one).
+
+  *In this version* groups entries by the state they are actually in there:
+  `Experimental` · `Preview` · `Stable` · `Deprecated` · `Removed`. Nothing
+  else appears — an idea and an unmerged pull request are not available in any
+  version.
+
+  *Upcoming* is everything with no state in that version yet but on its way,
+  nearest to shipping first: the earliest availability in a later version
+  (badged with it), then an open pull request, then an idea with nothing
+  recorded at all. It is relative to the picked version, not to what is
+  released.
+
+  On a version **older than the latest release**, the upcoming section is
+  replaced by a note pointing at where to find it. A historical board is a
+  snapshot of that version, so work that had not landed by then is deliberately
+  absent — showing it would answer a question nobody asked of a 3.2 board.
+
+  Archived entries are hidden from both. Cards carry a SIP badge.
 * **Version picker** — the same board computed for any chosen version.
 * **SIP board** — a separate view, columns are SIP stages, only entries with a
   SIP.

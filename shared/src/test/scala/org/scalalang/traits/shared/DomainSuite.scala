@@ -76,21 +76,20 @@ class StatusInSuite extends munit.FunSuite:
 
 class BoardSuite extends munit.FunSuite:
 
-  private def v(s: String)             = VersionId.parse(s).get
-  private val released: Set[VersionId] = (0 to 8).map(VersionId(3, _)).toSet
-  private val latestReleased = released.maxOption
+  private def v(s: String) = VersionId.parse(s).get
   private def cell(availability: List[Availability], at: String, archived: Boolean = false) =
-    Board.cell(availability, archived, v(at), released, latestReleased)
+    Board.cell(availability, archived, v(at))
+  private def ahead(availability: List[Availability], at: String, archived: Boolean = false) =
+    Board.upcoming(availability, archived, v(at))
 
   private def main(stage: AvailabilityStage, version: String) =
     Availability(stage, Some(v(version)))
 
+  // ---- cell: what the entry is in that version, and nothing else ----
+
   test("status places the entry in its stage's column") {
     val a = List(main(AvailabilityStage.Stable, "3.6"))
-    assertEquals(
-      cell(a, "3.8"),
-      Some(BoardCell(BoardColumn.Stable, Some(main(AvailabilityStage.Stable, "3.6")), false))
-    )
+    assertEquals(cell(a, "3.8"), Some(BoardCell(BoardColumn.Stable, Some(a.head))))
   }
 
   test("removed shows only in the version it happened") {
@@ -100,60 +99,60 @@ class BoardSuite extends munit.FunSuite:
     assertEquals(cell(a, "3.5").map(_.column), Some(BoardColumn.Stable))
   }
 
-  test("archived entries are hidden") {
+  test("archived entries are hidden from both sections") {
     val a = List(main(AvailabilityStage.Stable, "3.6"))
     assertEquals(cell(a, "3.8", archived = true), None)
+    assertEquals(ahead(Nil, "3.8", archived = true), None)
   }
 
-  test("no availability at all is an idea") {
-    assertEquals(cell(Nil, "3.8"), Some(BoardCell(BoardColumn.Idea, None, false)))
+  test("cell has no state for an idea or an open pull request") {
+    assertEquals(cell(Nil, "3.8"), None)
+    assertEquals(cell(List(Availability(AvailabilityStage.PullRequest, None)), "3.8"), None)
   }
 
-  test("a PullRequest-only entry shows in the PullRequest column") {
-    val pr = Availability(AvailabilityStage.PullRequest, None)
-    assertEquals(cell(List(pr), "3.8"), Some(BoardCell(BoardColumn.PullRequest, Some(pr), false)))
-  }
-
-  test("availability only in an unreleased version shows upcoming, badged") {
-    val a = List(main(AvailabilityStage.Experimental, "3.9"))
-    assertEquals(
-      cell(a, "3.8"),
-      Some(BoardCell(BoardColumn.Experimental, Some(a.head), upcoming = true))
-    )
-  }
-
-  test("upcoming wins over an open pull request") {
-    val pr = Availability(AvailabilityStage.PullRequest, None)
-    val a  = List(pr, main(AvailabilityStage.Experimental, "3.9"))
-    assertEquals(
-      cell(a, "3.8").map(c => (c.column, c.upcoming)),
-      Some((BoardColumn.Experimental, true))
-    )
-  }
-
-  test("availability starting in a later released version is hidden on older boards") {
+  test("availability starting in a later version is not in that version's cell") {
     val a = List(main(AvailabilityStage.Experimental, "3.6"))
     assertEquals(cell(a, "3.4"), None)
   }
 
-  test("upcoming shows only on the latest released board, not on older ones") {
-    val a = List(main(AvailabilityStage.Experimental, "3.10"))
-    assertEquals(cell(a, "3.8").map(_.upcoming), Some(true)) // latest released
-    assertEquals(cell(a, "3.2"), None)                       // history
-    assertEquals(cell(a, "3.0"), None)
+  // ---- upcoming: what has not landed yet, from that version's vantage point ----
+
+  test("no availability at all is an idea, upcoming") {
+    assertEquals(ahead(Nil, "3.8"), Some(BoardCell(BoardColumn.Idea, None)))
   }
 
-  test("upcoming does not leak onto a planned board earlier than the availability") {
-    val a = List(main(AvailabilityStage.Experimental, "3.10"))
-    assertEquals(cell(a, "3.9"), None)
+  test("a PullRequest-only entry is upcoming") {
+    val pr = Availability(AvailabilityStage.PullRequest, None)
+    assertEquals(ahead(List(pr), "3.8"), Some(BoardCell(BoardColumn.PullRequest, Some(pr))))
   }
 
-  test("with nothing released, upcoming still shows") {
+  test("the nearest later availability wins over an open pull request") {
+    val pr = Availability(AvailabilityStage.PullRequest, None)
+    val a  = List(pr, main(AvailabilityStage.Experimental, "3.9"))
+    assertEquals(ahead(a, "3.8").map(_.column), Some(BoardColumn.Experimental))
+  }
+
+  test("the earliest later availability is the one shown") {
+    val a = List(main(AvailabilityStage.Experimental, "3.9"), main(AvailabilityStage.Stable, "3.11"))
+    assertEquals(ahead(a, "3.8").map(_.status.flatMap(_.version)), Some(Some(v("3.9"))))
+  }
+
+  test("upcoming is relative to the selected version, not to what is released") {
     val a = List(main(AvailabilityStage.Experimental, "3.10"))
-    assertEquals(
-      Board.cell(a, archived = false, v("3.8"), Set.empty[VersionId], None).map(_.upcoming),
-      Some(true)
-    )
+    assertEquals(ahead(a, "3.2").map(_.column), Some(BoardColumn.Experimental))
+    assertEquals(ahead(a, "3.9").map(_.column), Some(BoardColumn.Experimental))
+    assertEquals(ahead(a, "3.10"), None) // it has a state there, so it is on the board itself
+    assertEquals(cell(a, "3.10").map(_.column), Some(BoardColumn.Experimental))
+  }
+
+  test("an entry already in effect is never also upcoming") {
+    val a = List(main(AvailabilityStage.Stable, "3.6"))
+    assertEquals(ahead(a, "3.8"), None)
+  }
+
+  test("a backport in a later version does not make an entry upcoming") {
+    val a = List(Availability(AvailabilityStage.Stable, Some(v("3.9")), backport = true))
+    assertEquals(ahead(a, "3.8"), None)
   }
 
 class ValidateSuite extends munit.FunSuite:
