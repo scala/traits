@@ -54,6 +54,14 @@ A PR's **milestone** dates the stage directly, when it has one.
 `availability` note should say, and often the answer to whether a feature is
 experimental at all.
 
+**Read the doc comments on those objects, not just their names.** One flag can
+gate more than one proposal: `relaxedLambdaSyntax` covers "single-line lambdas
+*and case clause expressions* after `:`", which is SIP-75 *and* SIP-74. So "no
+flag named after this feature" and "no PR whose title mentions it" are both
+weak negatives — SIP-74's implementation merged under the title of SIP-75's.
+When a feature looks unimplemented, read the comments and check the meeting
+notes before concluding it is.
+
 **Which release actually has it** — fetch the same file at a tag or branch
 (`?ref=3.9.0-RC6`, `?ref=main`, `?ref=3.3.0`) and see whether the flag is there.
 Many PRs carry no milestone, and a PR merged after a release branch was cut
@@ -66,6 +74,12 @@ Then:
 * `timeline` is for events that are *not* stage transitions — those are
   `availability` rows, and duplicating them will eventually contradict.
 * `watch: true` on the SIP PR and any live thread; not on shipped release notes.
+* **An `availability` note says how to enable the feature, not how you checked
+  the version.** "Absent in 3.7.0, present in 3.8.0" is the evidence for the
+  row, not content for the reader — the row already says 3.8. Keep the import,
+  flag or annotation, and anything the stage and version cannot convey: that a
+  deprecated import is now a no-op, that a feature arrived in a patch, that a
+  flag is shared with another proposal.
 * Summarise discussions in prose. Never quote non-public notes.
 * **Record decisions, not sentiment.** A vote, a deferral, a change of
   direction belongs in the `timeline`; which way a discussion seemed to be

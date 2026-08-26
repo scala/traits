@@ -148,7 +148,13 @@ regardless of what stage the entry is in.
 
 **How to enable a feature is prose**, in the `note` on an availability entry —
 a language import while experimental, `-preview` while preview, nothing once
-stable. Gating mechanisms are not modelled as data.
+stable. Gating mechanisms are not modelled as data. The note says how to enable
+the feature, not how the version was established.
+
+**Tags group entries; they do not describe them.** Search already covers the
+title, tagline and sections, so a tag repeating a word from the title earns
+nothing. Add one only to collect entries that share no words, prefer an
+existing tag, and keep the vocabulary small — a tag used once groups nothing.
 
 **Nothing derivable is stored.** The lane an entry occupies, its headline, and
 its status in any given version are all computed, so they cannot contradict the
