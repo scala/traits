@@ -15,9 +15,6 @@ import scala.math.Ordering.Implicits.infixOrderingOps
   */
 object BoardPage:
 
-  private val controlCls =
-    "border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
-
   def apply(pageSignal: Signal[Page.Home]): HtmlElement =
     val state = Var[Loaded[(List[EntrySummary], List[Version])]](Loaded.Loading)
 
@@ -55,7 +52,7 @@ object BoardPage:
                   cls := "block",
                   Components.fieldLabel("Scala version"),
                   select(
-                    cls := controlCls,
+                    cls := Components.boardControlCls,
                     controlled(
                       value <-- pageSignal.map(p => versionOf(p).render),
                       onChange.mapToValue --> { s => update(_.copy(version = Some(s))) }
@@ -68,19 +65,15 @@ object BoardPage:
                   )
                 )
               ,
-              input(
-                tpe         := "search",
-                placeholder := "Filter features…",
-                cls         := s"$controlCls w-56",
-                controlled(
-                  value <-- pageSignal.map(_.q.getOrElse("")),
-                  onInput.mapToValue --> { s => update(_.copy(q = Some(s).filter(_.nonEmpty))) }
-                )
+              Components.filterInput(
+                term = pageSignal.map(_.q.getOrElse("")),
+                set = q => update(_.copy(q = q)),
+                placeholderText = "Filter features…"
               )
             )
           ),
           child <-- pageSignal.map(p =>
-            board(filter(entries, p.q.getOrElse("")), versionOf(p), released)
+            board(Search.filter(entries, p.q.getOrElse("")), versionOf(p), released)
           )
         )
       }
@@ -93,15 +86,6 @@ object BoardPage:
         val unreleased = if reg.released then "" else " (unreleased)"
         s"${v.render}$lts$unreleased"
       case None => v.render
-
-  private def filter(entries: List[EntrySummary], term: String): List[EntrySummary] =
-    val t = term.trim.toLowerCase
-    if t.isEmpty then entries
-    else
-      entries.filter { e =>
-        (e.title + " " + e.tagline + " " + e.tags.mkString(" ") + " " + e.slug).toLowerCase
-          .contains(t)
-      }
 
   /** Newest version first, so within Stable the recently landed features lead. */
   private val cardOrder: Ordering[(EntrySummary, BoardCell)] =

@@ -259,3 +259,80 @@ class SerializationSuite extends munit.FunSuite:
       SipState.DesignVoteRequested(Recommendation.Accept)
     )
   }
+
+class SearchSuite extends munit.FunSuite:
+
+  private def summary(
+      slug: String,
+      title: String,
+      tagline: String = "",
+      tags: List[String] = Nil,
+      sip: Option[Sip] = None
+  ) = EntrySummary(slug, title, tagline, tags, archived = false, sip, Nil, "2026-01-01T00:00:00Z")
+
+  private val sip39 = Sip(
+    number = Some("SIP-39"),
+    title = "Right-Associative By-Name Operators",
+    url = "https://docs.scala-lang.org/sips/39.html",
+    state = SipState.CompletedShipped
+  )
+
+  private val entries = List(
+    summary(
+      "right-associative-by-name-operators",
+      "Right-associative by-name operators",
+      sip = Some(sip39)
+    ),
+    summary("named-tuples", "Named tuples", "Tuples with named fields.", List("types")),
+    summary(
+      "no-number",
+      "Draft proposal",
+      sip = Some(sip39.copy(number = None, title = "Struct classes"))
+    )
+  )
+
+  test("finds a proposal by its SIP number, which appears in no other field") {
+    assertEquals(
+      Search.filter(entries, "SIP-39").map(_.slug),
+      List("right-associative-by-name-operators")
+    )
+    assertEquals(
+      Search.filter(entries, "sip-39").map(_.slug),
+      List("right-associative-by-name-operators")
+    )
+  }
+
+  test("matches title, tagline, tags and slug") {
+    assertEquals(Search.filter(entries, "named fields").map(_.slug), List("named-tuples"))
+    assertEquals(Search.filter(entries, "types").map(_.slug), List("named-tuples"))
+    assertEquals(Search.filter(entries, "named-tuples").map(_.slug), List("named-tuples"))
+  }
+
+  test("matches a SIP title even when the proposal has no number yet") {
+    assertEquals(Search.filter(entries, "struct").map(_.slug), List("no-number"))
+  }
+
+  test("an empty or blank term keeps everything") {
+    assertEquals(Search.filter(entries, ""), entries)
+    assertEquals(Search.filter(entries, "   "), entries)
+  }
+
+  test("the server index covers everything the board filter does") {
+    val e = Entry(
+      slug = "right-associative-by-name-operators",
+      title = "Right-associative by-name operators",
+      tagline = "",
+      sections = List(Section("Overview", "desugaring")),
+      links = Nil,
+      timeline = Nil,
+      tags = Nil,
+      archived = false,
+      sip = Some(sip39),
+      availability = Nil,
+      updatedAt = "2026-01-01T00:00:00Z"
+    )
+    val index = Search.indexText(e)
+    assert(index.contains("sip-39"))
+    assert(index.contains("desugaring"))
+    assert(Search.haystack(e.summary).split(" ").forall(index.contains))
+  }

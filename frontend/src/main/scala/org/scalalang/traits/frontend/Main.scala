@@ -35,13 +35,13 @@ object Main:
       child <-- pageViews
     )
 
-  // SplitRender (not a plain map) so that changes within one page value — the board's URL query
+  // SplitRender (not a plain map) so that changes within one page value — a board's URL query
   // params — update the mounted page in place instead of rebuilding it, which would refetch and
   // drop input focus on every keystroke.
   private lazy val pageViews: Signal[HtmlElement] =
     SplitRender[Page, HtmlElement](Routes.router.currentPageSignal)
       .collectSignal[Page.Home](BoardPage(_))
-      .collectStatic(Page.Sips)(SipBoardPage())
+      .collectSignal[Page.Sips](SipBoardPage(_))
       .collectStatic(Page.Versions)(VersionsPage())
       .collectStatic(Page.Archived)(ArchivedPage())
       .collectStatic(Page.Login)(LoginPage())
@@ -59,7 +59,7 @@ object Main:
         div(
           cls := "flex gap-4 text-sm",
           navLink(Page.Home(), "Pipeline"),
-          navLink(Page.Sips, "SIPs"),
+          navLink(Page.Sips(), "SIPs"),
           child <-- hasArchived.signal.map {
             case true  => navLink(Page.Archived, "Archived")
             case false => emptyNode

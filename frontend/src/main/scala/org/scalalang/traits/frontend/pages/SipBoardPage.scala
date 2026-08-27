@@ -1,13 +1,14 @@
 package org.scalalang.traits.frontend.pages
 
 import org.scalalang.traits.frontend.ui.{Components, Loaded}
-import org.scalalang.traits.frontend.Api
+import org.scalalang.traits.frontend.{Api, Page, Routes}
 import org.scalalang.traits.frontend.Api.given
 import org.scalalang.traits.shared.*
 import com.raquo.laminar.api.L.*
 
 /** The SIP board: same cards and layout as the pipeline, one stacked section per SIP stage, ending
   * with a Closed section for rejected and withdrawn proposals. Only entries with a SIP appear here.
+  * The text filter is a URL query param (`/sips?q=match`), as on the pipeline board.
   */
 object SipBoardPage:
 
@@ -29,7 +30,7 @@ object SipBoardPage:
     case Some(SipStage.Completed)      => "bg-emerald-100 text-emerald-700"
     case None                          => "bg-rose-100 text-rose-700"
 
-  def apply(): HtmlElement =
+  def apply(pageSignal: Signal[Page.Sips]): HtmlElement =
     val state = Var[Loaded[(List[EntrySummary], List[Version])]](Loaded.Loading)
 
     // Versions only to tell a shipped availability from one still ahead of the latest release.
@@ -39,26 +40,40 @@ object SipBoardPage:
       case (_, Left(e))           => state.set(Loaded.Failed(e.message))
     }
 
+    def update(q: Option[String]): Unit =
+      Routes.router.currentPageSignal.now() match
+        case _: Page.Sips => Routes.router.replaceState(Page.Sips(q))
+        case _            => ()
+
     Components.containerWide(
       div(
-        cls := "mb-5",
-        Components.pageTitle("Scala improvement proposals")
+        cls := "flex flex-wrap items-end justify-between gap-3 mb-5",
+        Components.pageTitle("Scala improvement proposals"),
+        Components.filterInput(
+          term = pageSignal.map(_.q.getOrElse("")),
+          set = update,
+          placeholderText = "Filter proposals…"
+        )
       ),
       Components.loaded(state.signal) { case (entries, versions) =>
-        val latest  = Version.latestReleased(versions)
-        val withSip = entries.filterNot(_.archived).flatMap(e => e.sip.map(e -> _))
-        Components.board(
-          stages.map { c =>
-            val items = withSip
-              .filter((_, sip) => SipState.stage(sip.state) == c)
-              .sortBy(_._1.title)
-            Components.BoardSection(
-              label = stageLabel(c),
-              colorCls = stageClasses(c),
-              cards = items.map(card(_, latest))
-            )
-          }
-        )
+        val latest = Version.latestReleased(versions)
+        div(child <-- pageSignal.map { p =>
+          val withSip = Search
+            .filter(entries.filterNot(_.archived), p.q.getOrElse(""))
+            .flatMap(e => e.sip.map(e -> _))
+          Components.board(
+            stages.map { c =>
+              val items = withSip
+                .filter((_, sip) => SipState.stage(sip.state) == c)
+                .sortBy(_._1.title)
+              Components.BoardSection(
+                label = stageLabel(c),
+                colorCls = stageClasses(c),
+                cards = items.map(card(_, latest))
+              )
+            }
+          )
+        })
       }
     )
 

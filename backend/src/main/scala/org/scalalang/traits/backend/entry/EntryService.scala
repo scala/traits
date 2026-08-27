@@ -51,9 +51,14 @@ class EntryService(ds: DataSource):
   def count(): Long =
     connect(ds) { Db.entryCount }
 
+  /** Recompute every row's `search_text` in place, leaving `updated_at` alone. Run at startup so
+    * that changing what `searchText` covers takes effect on data written by an older build.
+    */
+  def reindex(): Int =
+    transact(ds) {
+      EntryRepo.findAll.map(parse).map(e => EntryRepo.reindex(e.slug, searchText(e))).sum
+    }
+
   private def parse(json: String): Entry = read[Entry](json)
 
-  private def searchText(e: Entry): String =
-    (List(e.title, e.tagline) ++ e.tags ++ e.sections.flatMap(s => List(s.heading, s.body)))
-      .mkString(" ")
-      .toLowerCase
+  private def searchText(e: Entry): String = Search.indexText(e)

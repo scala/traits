@@ -29,5 +29,8 @@ object EntryRepo:
                     search_text = excluded.search_text,
                     data        = excluded.data""".update.run()
 
+  def reindex(slug: String, searchText: String)(using DbCon): Int =
+    sql"UPDATE entry SET search_text = $searchText WHERE slug = $slug".update.run()
+
   def delete(slug: String)(using DbCon): Int =
     sql"DELETE FROM entry WHERE slug = $slug".update.run()

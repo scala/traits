@@ -5,7 +5,7 @@ import upickle.default.*
 
 enum Page derives ReadWriter:
   case Home(version: Option[String] = None, q: Option[String] = None)
-  case Sips
+  case Sips(q: Option[String] = None)
   case Versions
   case Archived
   case Login
@@ -32,7 +32,13 @@ object Routes:
     pattern = (root / endOfSegments) ? (param[String]("v").? & param[String]("q").?)
   )
 
-  private val sipsRoute = staticRoute(Page.Sips, List("sips"))
+  // Same treatment as the home board: the filter is a query param so a filtered board is
+  // shareable. `/sips` with no param still matches.
+  private val sipsRoute = Route.onlyQuery[Page.Sips, Option[String]](
+    encode = _.q,
+    decode = Page.Sips(_),
+    pattern = (root / "sips" / endOfSegments) ? param[String]("q").?
+  )
 
   private val versionsRoute = staticRoute(Page.Versions, List("versions"))
 

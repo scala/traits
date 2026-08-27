@@ -28,6 +28,7 @@ object Main extends OxApp.Simple:
 
     val entries  = EntryService(ds)
     val versions = VersionService(ds)
+    val _        = entries.reindex()
 
     val codec = SessionCodec(cfg.sessionSecret.getBytes(UTF_8))
     val auth  = AuthApi(codec, cfg.editorPassword, sessionTtl.getSeconds, cfg.cookieSecure)

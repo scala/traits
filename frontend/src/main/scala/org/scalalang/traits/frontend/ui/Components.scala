@@ -177,6 +177,28 @@ object Components:
   val btnDanger =
     "border border-rose-300 text-rose-700 rounded-md px-4 py-2 text-sm hover:bg-rose-50"
 
+  /** Board-header variant of `controlCls`: sized to its content instead of filling a column. */
+  val boardControlCls =
+    "border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+
+  /** The filter box both boards carry. The term lives in the page's URL query, so it is passed in
+    * as a signal and written back through `set` rather than held here.
+    */
+  def filterInput(
+      term: Signal[String],
+      set: Option[String] => Unit,
+      placeholderText: String
+  ): HtmlElement =
+    input(
+      tpe         := "search",
+      placeholder := placeholderText,
+      cls         := s"$boardControlCls w-56",
+      controlled(
+        value <-- term,
+        onInput.mapToValue --> { s => set(Some(s).filter(_.nonEmpty)) }
+      )
+    )
+
   private val controlCls =
     "w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
 

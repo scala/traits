@@ -349,3 +349,39 @@ case class EntryStatus(
 case class Editor(name: String) derives ReadWriter
 
 case class LoginRequest(password: String) derives ReadWriter
+
+/** Text matching for the board filters and the server-side `search_text` index. Both are built from
+  * `identity`, so an entry found by one is found by the other.
+  *
+  * The SIP number is part of it because it appears nowhere else a reader would type: "SIP-39" is
+  * not in the title, the tagline or, usually, the prose.
+  */
+object Search:
+
+  /** The fields that name an entry rather than describe it. */
+  private def identity(
+      slug: String,
+      title: String,
+      tagline: String,
+      tags: List[String],
+      sip: Option[Sip]
+  ): List[String] =
+    List(title, tagline, slug) ++ tags ++ sip.toList.flatMap(s => s.number.toList :+ s.title)
+
+  /** What a board filter matches against — a summary carries no sections. */
+  def haystack(e: EntrySummary): String =
+    identity(e.slug, e.title, e.tagline, e.tags, e.sip).mkString(" ").toLowerCase
+
+  /** What the server indexes: the same, plus the prose. */
+  def indexText(e: Entry): String =
+    (identity(e.slug, e.title, e.tagline, e.tags, e.sip)
+      ++ e.sections.flatMap(s => List(s.heading, s.body)))
+      .mkString(" ")
+      .toLowerCase
+
+  def matches(e: EntrySummary, term: String): Boolean =
+    val t = term.trim.toLowerCase
+    t.isEmpty || haystack(e).contains(t)
+
+  def filter(entries: List[EntrySummary], term: String): List[EntrySummary] =
+    if term.trim.isEmpty then entries else entries.filter(matches(_, term))
