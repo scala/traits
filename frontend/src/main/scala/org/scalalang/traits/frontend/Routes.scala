@@ -7,6 +7,7 @@ enum Page derives ReadWriter:
   case Home(version: Option[String] = None, q: Option[String] = None)
   case Sips
   case Versions
+  case Archived
   case Login
   case NewEntry
   case EntryView(slug: String)
@@ -35,6 +36,8 @@ object Routes:
 
   private val versionsRoute = staticRoute(Page.Versions, List("versions"))
 
+  private val archivedRoute = staticRoute(Page.Archived, List("archived"))
+
   private val loginRoute = staticRoute(Page.Login, List("login"))
 
   private val newEntryRoute = staticRoute(Page.NewEntry, List("new"))
@@ -52,7 +55,16 @@ object Routes:
   )
 
   val allRoutes: List[Route[? <: Page, ?]] =
-    List(homeRoute, sipsRoute, versionsRoute, loginRoute, newEntryRoute, editEntryRoute, entryRoute)
+    List(
+      homeRoute,
+      sipsRoute,
+      versionsRoute,
+      archivedRoute,
+      loginRoute,
+      newEntryRoute,
+      editEntryRoute,
+      entryRoute
+    )
 
   // url-dsl builds a query URL as `path ++ "?" ++ params` whether or not any params are set, so
   // `Page.Home()` with neither `v` nor `q` comes out as `/?`. Both push/replaceState build their
@@ -70,4 +82,6 @@ object Routes:
       trimEmptyQuery(super.relativeUrlForPage(page))
 
   def urlFor(page: Page): String =
-    trimEmptyQuery(allRoutes.iterator.flatMap(_.relativeUrlForPage(page)).nextOption().getOrElse("/"))
+    trimEmptyQuery(
+      allRoutes.iterator.flatMap(_.relativeUrlForPage(page)).nextOption().getOrElse("/")
+    )

@@ -1,6 +1,7 @@
 package org.scalalang.traits.frontend
 
 import org.scalalang.traits.frontend.pages.{
+  ArchivedPage,
   BoardPage,
   EditorPage,
   EntryPage,
@@ -15,8 +16,16 @@ import org.scalajs.dom
 
 object Main:
 
+  // Whether anything is archived at all, so the tab only shows when it leads somewhere. Fetched
+  // once at load; an editor who archives an entry sees the tab appear on the next reload.
+  private val hasArchived = Var(false)
+
   def main(args: Array[String]): Unit =
     Session.init()
+    Api.listEntries().foreach {
+      case Right(es) => hasArchived.set(es.exists(_.archived))
+      case Left(_)   => ()
+    }
     val _ = renderOnDomContentLoaded(dom.document.getElementById("app"), app())
 
   def app(): HtmlElement =
@@ -34,6 +43,7 @@ object Main:
       .collectSignal[Page.Home](BoardPage(_))
       .collectStatic(Page.Sips)(SipBoardPage())
       .collectStatic(Page.Versions)(VersionsPage())
+      .collectStatic(Page.Archived)(ArchivedPage())
       .collectStatic(Page.Login)(LoginPage())
       .collectStatic(Page.NewEntry)(EditorPage(None))
       .collect[Page.EntryView](p => EntryPage(p.slug))
@@ -50,6 +60,10 @@ object Main:
           cls := "flex gap-4 text-sm",
           navLink(Page.Home(), "Pipeline"),
           navLink(Page.Sips, "SIPs"),
+          child <-- hasArchived.signal.map {
+            case true  => navLink(Page.Archived, "Archived")
+            case false => emptyNode
+          },
           navLink(Page.Versions, "Versions")
         ),
         div(
