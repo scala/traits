@@ -9,9 +9,9 @@ import com.raquo.laminar.api.L.*
 import scala.math.Ordering.Implicits.infixOrderingOps
 
 /** Home view: the pipeline, one stacked section per availability stage plus Idea, computed for a
-  * picked version (default: the latest released one), with a count strip on top. The picked version
-  * and the text filter are URL query params (`/?v=3.4&q=tuple`) — the URL is the source of truth,
-  * written with `replaceState` so typing doesn't pollute history.
+  * picked version (default: the latest released one). The picked version and the text filter are
+  * URL query params (`/?v=3.4&q=tuple`) — the URL is the source of truth, written with
+  * `replaceState` so typing doesn't pollute history.
   */
 object BoardPage:
 
@@ -45,10 +45,7 @@ object BoardPage:
         div(
           div(
             cls := "flex flex-wrap items-end justify-between gap-3 mb-5",
-            div(
-              Components.pageTitle("Scala language features"),
-              Components.subtitle("Where every change stands, from idea to stable and beyond.")
-            ),
+            Components.pageTitle("Scala language features"),
             div(
               cls := "flex items-end gap-3",
               if versions.isEmpty then
@@ -155,7 +152,7 @@ object BoardPage:
         div(
           cls := "mt-10 pt-8 border-t border-slate-200",
           Components.pageTitle("Upcoming"),
-          Components.subtitle(s"Not in ${v.render} yet — on the way, or still an idea."),
+          Components.subtitle(s"Not in ${v.render} yet."),
           div(
             cls := "mt-5",
             Components.board(sections(ahead, BoardColumn.upcoming, upcoming = true))
@@ -163,24 +160,18 @@ object BoardPage:
         )
     )
 
+  /** The availability line, dropped for an idea (no availability) or an open pull request — there
+    * is no version to name in either case.
+    */
   private def card(item: (EntrySummary, BoardCell), upcoming: Boolean): HtmlElement =
     val (e, cell) = item
-    val statusLine: Node = cell.status match
-      case Some(a) if upcoming =>
-        div(
-          cls := "mt-1",
-          Components.badge(
-            a.version.fold("planned")(v => s"in ${v.render}"),
-            "bg-amber-100 text-amber-700"
-          )
-        )
-      case Some(a) => Components.boardCardStatus(Components.statusText(a))
-      case None =>
-        e.sip.map(s => Components.boardCardStatus(SipState.label(s.state))).getOrElse(emptyNode)
+    val availability = cell.status
+      .filter(_.stage != AvailabilityStage.PullRequest)
+      .map(Components.statusText(_, upcoming))
     Components.boardCard(
       slug = e.slug,
       cardTitle = e.title,
       tooltip = e.tagline,
-      corner = e.sip.map(_.number.getOrElse("SIP")),
-      statusLine = statusLine
+      sip = e.sip,
+      availability = availability
     )

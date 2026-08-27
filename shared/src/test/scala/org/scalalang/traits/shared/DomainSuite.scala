@@ -133,7 +133,8 @@ class BoardSuite extends munit.FunSuite:
   }
 
   test("the earliest later availability is the one shown") {
-    val a = List(main(AvailabilityStage.Experimental, "3.9"), main(AvailabilityStage.Stable, "3.11"))
+    val a =
+      List(main(AvailabilityStage.Experimental, "3.9"), main(AvailabilityStage.Stable, "3.11"))
     assertEquals(ahead(a, "3.8").map(_.status.flatMap(_.version)), Some(Some(v("3.9"))))
   }
 

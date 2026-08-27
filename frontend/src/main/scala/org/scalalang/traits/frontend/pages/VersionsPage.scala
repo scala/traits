@@ -120,9 +120,6 @@ object VersionsPage:
 
     Components.container(
       Components.pageTitle("Scala versions"),
-      Components.subtitle(
-        "The minor releases entries anchor to — with LTS, release state and date."
-      ),
       div(
         cls := "mt-4 space-y-4",
         child <-- error.signal.map {

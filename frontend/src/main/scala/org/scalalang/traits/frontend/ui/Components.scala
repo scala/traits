@@ -1,8 +1,17 @@
 package org.scalalang.traits.frontend.ui
 
 import org.scalalang.traits.frontend.{Markdown, Page, Routes}
-import org.scalalang.traits.shared.{Availability, AvailabilityStage, BoardColumn}
+import org.scalalang.traits.shared.{
+  Availability,
+  AvailabilityStage,
+  BoardColumn,
+  Sip,
+  SipState,
+  VersionId
+}
 import com.raquo.laminar.api.L.*
+
+import scala.math.Ordering.Implicits.infixOrderingOps
 
 /** Three-state wrapper for an async load. */
 enum Loaded[+A]:
@@ -40,9 +49,6 @@ object Components:
       text
     )
 
-  def columnBadge(column: BoardColumn): HtmlElement =
-    badge(BoardColumn.label(column), columnClasses(column))
-
   def columnClasses(column: BoardColumn): String = column match
     case BoardColumn.Idea         => "bg-slate-100 text-slate-600"
     case BoardColumn.PullRequest  => "bg-violet-100 text-violet-700"
@@ -54,7 +60,8 @@ object Components:
 
   // ---- board views (the pipeline and the SIP board) ----
 
-  /** One stage of a board view: a stacked full-width section of cards, shown only when non-empty. */
+  /** One stage of a board view: a stacked full-width section of cards, shown only when non-empty.
+    */
   final case class BoardSection(
       label: String,
       colorCls: String,
@@ -75,45 +82,66 @@ object Components:
         badge(s.label, s.colorCls),
         span(cls := "text-xs text-slate-400", s.cards.size.toString)
       ),
-      div(cls := "grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-2", s.cards)
+      cardGrid(s.cards)
     )
 
-  /** A compact board card: title, an optional mono corner tag (the SIP number), and a status line.
-    * The tagline doesn't fit — it becomes the hover tooltip.
+  /** As many cards per row as fit at 16rem; four across the wide container. */
+  def cardGrid(cards: List[HtmlElement]): HtmlElement =
+    div(cls := "grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-2", cards)
+
+  /** A board card: the title, then the SIP and where the feature is available — the availability
+    * moves up to the second line when there is no SIP. Both lines keep their height when empty so
+    * cards in a row line up; an idea or an open pull request has nothing to say about availability.
     */
   def boardCard(
       slug: String,
       cardTitle: String,
       tooltip: String,
-      corner: Option[String],
-      statusLine: Node
+      sip: Option[Sip],
+      availability: Option[String]
   ): HtmlElement =
+    val sipLine = sip.map(s => List(sipChip(s), metaText(SipState.label(s.state), inset = false)))
+    val lines   = (sipLine.toList ++ availability.map(t => List(metaText(t))).toList).padTo(2, Nil)
     a(
       href := Routes.urlFor(Page.EntryView(slug)),
       onClick.preventDefault --> { _ => Routes.router.pushState(Page.EntryView(slug)) },
       cls := "block bg-white rounded-lg border border-slate-200 px-3 py-2 hover:border-blue-300 hover:shadow-sm transition",
       title := tooltip,
-      div(
-        cls := "flex items-baseline gap-2",
-        span(cls := "font-medium text-slate-900 text-sm truncate", cardTitle),
-        corner
-          .map(t => span(cls := "text-xs font-mono text-slate-400 ml-auto shrink-0", t))
-          .getOrElse(emptyNode)
-      ),
-      statusLine
+      div(cls := "font-medium text-slate-900 text-sm truncate", cardTitle),
+      lines.take(2).map(l => div(cls := "flex items-center gap-1.5 h-5 mt-0.5", l))
     )
 
-  def boardCardStatus(text: String): HtmlElement =
-    div(cls := "text-xs text-slate-400 mt-0.5", text)
+  private def sipChip(s: Sip): HtmlElement =
+    span(
+      cls := "shrink-0 font-mono text-xs px-1.5 rounded bg-indigo-50 text-indigo-600",
+      s.number.getOrElse("SIP")
+    )
+
+  /** `inset` pads a line's text by exactly the chip's own padding, so every line of a card starts
+    * on the same vertical line whether or not it opens with the chip.
+    */
+  private def metaText(text: String, inset: Boolean = true): HtmlElement =
+    span(cls := s"truncate text-xs text-slate-500${if inset then " pl-1.5" else ""}", text)
+
+  /** The furthest point reached on the availability track, for a card with no version of its own to
+    * anchor to. `latest` is the newest released version, which decides "since" against "in".
+    */
+  def reachedText(availability: List[Availability], latest: Option[VersionId]): Option[String] =
+    availability
+      .filterNot(_.backport)
+      .filter(_.version.isDefined)
+      .maxByOption(_.version)
+      .map(a => statusText(a, upcoming = !a.version.exists(v => latest.exists(v <= _))))
 
   /** Short "where it stands" line for an availability entry: "Stable since 3.8", "Removed in 3.11
-    * (backport)", "Pull request open".
+    * (backport)", "Pull request open". `upcoming` is for a version the feature has not reached yet,
+    * where "since" would read backwards.
     */
-  def statusText(a: Availability): String =
+  def statusText(a: Availability, upcoming: Boolean = false): String =
     a.version match
       case None => "Pull request open"
       case Some(v) =>
-        val preposition = if a.stage == AvailabilityStage.Removed then "in" else "since"
+        val preposition = if upcoming || a.stage == AvailabilityStage.Removed then "in" else "since"
         val backport    = if a.backport then " (backport)" else ""
         s"${AvailabilityStage.label(a.stage)} $preposition ${v.render}$backport"
 

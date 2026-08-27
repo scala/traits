@@ -34,39 +34,22 @@ object EntryPage:
 
   private def view(e: Entry, versions: List[Version]): HtmlElement =
     div(
-      header(e, versions),
+      header(e),
       metaRow(e),
       sections(e),
       links(e),
       history(e, versions)
     )
 
-  private def header(e: Entry, versions: List[Version]): HtmlElement =
-    val current = Version.latestReleased(versions).flatMap(e.statusIn)
-    val statusBadge: Node = current match
-      case Some(a) =>
-        Components.badge(
-          BoardColumn.label(BoardColumn.of(a.stage)),
-          Components.columnClasses(BoardColumn.of(a.stage))
-        )
-      case None =>
-        e.sip match
-          case Some(_) => Components.badge("SIP", "bg-amber-100 text-amber-700")
-          case None =>
-            if e.availability.nonEmpty then Components.columnBadge(BoardColumn.PullRequest)
-            else Components.columnBadge(BoardColumn.Idea)
-    val statusLine = current
-      .map(Components.statusText)
-      .orElse(e.sip.map(s => SipState.label(s.state)))
+  /** Title only: the SIP and the availability track have their own cards below. */
+  private def header(e: Entry): HtmlElement =
     div(
       cls := "border-b border-slate-200 pb-4 mb-4",
       div(
         cls := "flex items-center gap-3 flex-wrap",
         h1(cls := "text-2xl font-semibold text-slate-900", e.title),
-        statusBadge,
-        if e.archived then Components.badge("Archived", "bg-slate-200 text-slate-500")
-        else emptyNode,
-        statusLine.map(t => span(cls := "text-sm text-slate-500", t)).getOrElse(emptyNode)
+        if e.archived then Components.badge("Archived", "bg-amber-50 text-amber-700")
+        else emptyNode
       ),
       p(cls := "text-slate-600 mt-1", e.tagline),
       if e.tags.isEmpty then emptyNode
